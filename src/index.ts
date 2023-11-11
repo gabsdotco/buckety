@@ -23,17 +23,20 @@ program
   .description('Run a pipeline or step')
   .argument('<type>', 'The type of trigger [step|pipeline]')
   .argument('<name>', 'The step or pipeline name to run')
+  .option('-t, --template <template>', 'The template to use', 'bitbucket-pipelines.yml')
   .option('-e, --env <variables>', 'Environment variables to pass, comma separated (e.g. KEY1=VALUE1,KEY2=VALUE2)')
   .option('-ef, --env-file <env-file>', 'Environment variables to pass to the pipeline from a file')
   .option('-dr, --dry-run', 'Dry run the pipeline', false)
   .action((type: 'step' | 'pipeline', name: string, options) => {
     const { template, env, envFile, dryRun } = options;
 
+    console.log({ type, name, template, env, envFile, dryRun });
+
     if (!fs.existsSync(template)) error(`Template (--template) file ${chalk.underline(template)} does not exist`);
 
     try {
       const { pipelines, definitions } = yaml.load(fs.readFileSync(template, 'utf8')) as Template;
-      console.log(JSON.stringify(pipelines, null, 2));
+      console.log({ pipelines, definitions });
     } catch (err) {
       if (err instanceof yaml.YAMLException) error(err.message);
       error(err as string);

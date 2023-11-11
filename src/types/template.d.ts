@@ -1,5 +1,5 @@
-import { IDefinitions } from './definitions';
-import { IPipelines } from './pipeline';
+import type { IDefinitions } from './definitions';
+import type { IPipelines } from './pipeline';
 
 export interface Template {
   options: any;
