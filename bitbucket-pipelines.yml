@@ -11,4 +11,9 @@ definitions:
 pipelines:
   default:
     - step: *install
-    - step: *install
+
+  branches:
+    develop:
+      - step: *install
+    master:
+      - step: *install
