@@ -1,12 +1,12 @@
 import { Command } from 'commander';
 
 import Docker from 'dockerode';
-import crypto from 'crypto';
 
 import fs from 'fs';
 import get from 'lodash/get';
 import yaml from 'js-yaml';
 import chalk from 'chalk';
+import crypto from 'crypto';
 
 import { version } from '../package.json';
 
