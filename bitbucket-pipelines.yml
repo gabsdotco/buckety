@@ -1,11 +1,16 @@
 image: ubuntu
 
 definitions:
+  scripts:
+    - script: &scalar-test |-
+        echo "hello world"
+        echo "hello second line"
   steps:
     - step: &install
         name: 'Install Dependencies'
         image: node:16
         script:
+          # - *scalar-test
           - npm install
 
 pipelines:

@@ -7,7 +7,7 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "start": "ts-node ./src/index.ts"
+    "start": "ts-node -r tsconfig-paths/register ./src/index.ts"
   },
   "dependencies": {
     "chalk": "4.1.2",
@@ -23,6 +23,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/lodash": "^4.14.202",
     "@types/node": "^20.9.2",
-    "eslint": "^8.54.0"
+    "eslint": "^8.54.0",
+    "tsconfig-paths": "^4.2.0"
   }
 }
