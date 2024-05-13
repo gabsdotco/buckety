@@ -1,13 +1,15 @@
-import { Step } from './step';
+import { IImage } from './image';
+import { IStep } from './step';
 
-export interface PipelineStepConfig {
-  step: Step;
+export interface IPipelineStepConfig {
+  step: IStep;
+  image: IImage;
 }
 
-export interface PipelinesConfig {
-  default?: PipelineStepConfig[];
-  tags?: Record<string, PipelineStepConfig[]>;
-  custom?: Record<string, PipelineStepConfig[]>;
-  branches?: Record<string, PipelineStepConfig[]>;
-  'pull-requests'?: Record<string, PipelineStepConfig[]>;
+export interface IPipelinesConfig {
+  default?: IPipelineStepConfig[];
+  tags?: Record<string, IPipelineStepConfig[]>;
+  custom?: Record<string, IPipelineStepConfig[]>;
+  branches?: Record<string, IPipelineStepConfig[]>;
+  'pull-requests'?: Record<string, IPipelineStepConfig[]>;
 }

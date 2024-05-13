@@ -1,1 +1,1 @@
-export interface DefinitionsConfig { }
+export interface IDefinitionsConfig {}

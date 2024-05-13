@@ -1,3 +1,5 @@
-interface ImageOptions { }
+interface IImageOptions {
+  name: string;
+}
 
-export type Image = string | {};
+export type IImage = string | {};

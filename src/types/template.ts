@@ -1,11 +1,11 @@
-import type { DefinitionsConfig } from './definitions';
-import type { PipelinesConfig } from './pipeline';
-import type { Image } from './image';
+import type { IDefinitionsConfig } from './definitions';
+import type { IPipelinesConfig } from './pipeline';
+import type { IImage } from './image';
 
-export interface Template {
+export interface ITemplate {
   options?: any;
   clone?: any;
-  definitions?: DefinitionsConfig;
-  image?: Image;
-  pipelines: PipelinesConfig;
+  definitions?: IDefinitionsConfig;
+  image?: IImage;
+  pipelines: IPipelinesConfig;
 }
