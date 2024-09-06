@@ -1,7 +1,8 @@
+/* eslint-disable no-console */
 import chalk from 'chalk';
 
 export const info = (message: string) => {
-  console.log(`${chalk.bgBlue.black(' INFO ')} ${chalk.blue(message)}`);
+  console.log(`${chalk.bgCyan.black(' INFO ')} ${chalk.cyan(message)}`);
 };
 
 export const error = (message: string) => {
@@ -17,7 +18,7 @@ export const warning = (message: string) => {
 };
 
 export const debug = (message: string) => {
-  console.log(`${chalk.bgGray.black(' DEBUG ')} ${chalk.gray(message)}`);
+  console.log(`${chalk.bgWhite.black(' DEBUG ')} ${chalk.white(message)}`);
 };
 
 export const log = (message: string) => {

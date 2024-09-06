@@ -5,23 +5,25 @@ import chalk from 'chalk';
 
 import * as logger from '@/lib/logger';
 
-import { IPipelineStepConfig, ITemplate } from '@/types';
+import type { Template, Pipeline } from '@/types';
 
-interface ITemplateOptions {
+const DEFAULT_BITBUCKET_IMAGE = 'atlassian/default-image';
+
+interface ConfigurationOptions {
   path: string;
 }
 
-export class Template {
-  private definitions!: ITemplate;
+export class Configuration {
+  private configuration: Template;
 
-  constructor(options: ITemplateOptions) {
+  constructor(options: ConfigurationOptions) {
     if (!fs.existsSync(options.path)) {
       logger.error(`Template file ${chalk.underline(options.path)} does not exist`);
       process.exit();
     }
 
     try {
-      this.definitions = yaml.load(fs.readFileSync(options.path, 'utf8')) as ITemplate;
+      this.configuration = yaml.load(fs.readFileSync(options.path, 'utf8')) as Template;
     } catch (error) {
       if (error instanceof yaml.YAMLException) {
         logger.error(`Template file ${chalk.underline(options.path)} is not valid YAML: ${error.message}\n`);
@@ -34,12 +36,12 @@ export class Template {
   }
 
   public getDefaultImage() {
-    return this.definitions.image;
+    return this.configuration.image || DEFAULT_BITBUCKET_IMAGE;
   }
 
   public getPipelineByName(name: string) {
     const pipelinePath = name.replace(':', '.');
-    const pipelineConfig = get(this.definitions.pipelines, pipelinePath) as IPipelineStepConfig[];
+    const pipelineConfig = get(this.configuration.pipelines, pipelinePath) as Pipeline;
 
     if (!pipelineConfig) {
       logger.error(`Pipeline ${chalk.underline(name)} does not exist`);

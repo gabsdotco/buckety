@@ -3,15 +3,21 @@ image: ubuntu
 definitions:
   scripts:
     - script: &scalar-test |-
-        echo "hello world"
+        export TEST='FOO'
         echo "hello second line"
+        echo $TEST
+
   steps:
     - step: &install
         name: 'Install Dependencies'
         image: node:16
         script:
-          # - *scalar-test
+          - *scalar-test
+          - export TEST='FOO'
           - npm install
+          - ls -la
+          - npm run start
+          - echo $TEST
 
 pipelines:
   default:

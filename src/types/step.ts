@@ -1,4 +1,4 @@
-export interface IStep {
+export interface Step {
   name?: string;
   image?: string;
   script: string[];
