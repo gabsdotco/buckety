@@ -1,9 +1,10 @@
-image: ubuntu
+image: node:16
 
 definitions:
   scripts:
-    - script: &scalar-test |-
-        export TEST='FOO'
+    - script: &scalar |-
+        ls -la
+        TEST='FOO'
         echo "hello second line"
         echo $TEST
 
@@ -12,16 +13,19 @@ definitions:
         name: 'Install Dependencies'
         image: node:16
         script:
-          - *scalar-test
-          - export TEST='FOO'
           - npm install
           - ls -la
           - npm run start
-          - echo $TEST
+    - step: &export
+        name: 'Export Test'
+        image: node:16
+        script:
+          - *scalar
 
 pipelines:
   default:
     - step: *install
+    - step: *export
 
   branches:
     develop:

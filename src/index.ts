@@ -1,7 +1,7 @@
 import { Configuration } from './modules/configuration';
 import { Runner } from './modules/runner';
 
-const DEFAULT_TEMPLATE_PATH = 'bitbucket-pipelines.yml';
+const DEFAULT_TEMPLATE_PATH = './example/bitbucket-pipelines.yml';
 
 const configuration = new Configuration({ path: DEFAULT_TEMPLATE_PATH });
 

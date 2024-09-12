@@ -134,11 +134,6 @@ export class Runner {
       for (const script of step.script) {
         logger.info(`Running script: ${script}`);
 
-        // if (script.startsWith('export')) {
-        //   logger.warning('Export command detected. Currently not supported by Buckety, the command will be skipped');
-        //   continue;
-        // }
-
         await new Promise<void>((resolve) => {
           container.exec(
             {
@@ -197,8 +192,6 @@ export class Runner {
 
   public async runPipelineSteps() {
     for (const { step } of this.pipeline) {
-      logger.log(JSON.stringify({ step }));
-
       if (!step) {
         logger.error('Step is not defined');
         process.exit();
