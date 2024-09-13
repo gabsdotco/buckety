@@ -144,13 +144,13 @@ export class Runner {
             },
             (error, exec) => {
               if (error || !exec) {
-                logger.error('Something went wrong trying to run the step');
+                logger.error('Something went wrong trying to run the script');
                 process.exit();
               }
 
               exec.start({}, (error, stream) => {
                 if (error || !stream) {
-                  logger.error('Something went wrong trying to run the step');
+                  logger.error('Something went wrong trying to run the script');
                   process.exit();
                 }
 
