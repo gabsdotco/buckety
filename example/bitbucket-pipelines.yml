@@ -16,6 +16,7 @@ definitions:
           - npm install
           - ls -la
           - npm run start
+
     - step: &export
         name: 'Export Test'
         image: node:16

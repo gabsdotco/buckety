@@ -11,7 +11,6 @@ const defaultImage = configuration.getDefaultImage();
 const runner = new Runner({ pipeline, defaultImage });
 
 (async () => {
-  await runner.checkDockerAvailability();
   await runner.runPipelineSteps();
 
   // console.log(JSON.stringify(pipeline, null, 2));
