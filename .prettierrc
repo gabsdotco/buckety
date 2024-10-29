@@ -6,5 +6,5 @@
   "arrowParens": "always",
   "trailingComma": "all",
   "semi": true,
-  "printWidth": 140
+  "printWidth": 100
 }

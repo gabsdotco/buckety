@@ -11,19 +11,22 @@ definitions:
   steps:
     - step: &install
         name: 'Install Dependencies'
-        image: node:16
         script:
-          - npm install
+          - npm ci
           - ls -la
           - npm run start
 
     - step: &export
         name: 'Export Test'
-        image: node:16
         script:
           - *scalar
 
 pipelines:
+  tags:
+    '*.*.*':
+      - step: *install
+      - step: *export
+
   default:
     - step: *install
     - step: *export

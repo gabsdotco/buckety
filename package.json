@@ -1,13 +1,26 @@
 {
   "name": "buckety",
   "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
-  "keywords": [],
-  "author": "",
+  "description": "A simple CLI for running Bitbucket Pipelines locally",
+  "main": "./dist/index.js",
+  "keywords": [
+    "bitbucket",
+    "pipelines",
+    "cli"
+  ],
+  "author": "gabsdotco",
   "license": "ISC",
+  "bin": {
+    "buckety": "./bin/run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "start": "ts-node -r tsconfig-paths/register ./src/index.ts"
+    "start": "ts-node ./bin/run",
+    "start:node": "node ./bin/run",
+    "build": "tsc && tsc-alias",
+    "build:watch": "tsc -w"
   },
   "dependencies": {
     "chalk": "4.1.2",
@@ -20,13 +33,14 @@
     "typescript": "^5.2.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.5.0",
+    "@eslint/js": "^8.56.0",
     "@types/dockerode": "^3.3.23",
     "@types/js-yaml": "^4.0.9",
     "@types/lodash": "^4.14.202",
     "@types/node": "^20.9.2",
-    "eslint": "^9.5.0",
+    "eslint": "^8.56.0",
     "globals": "^15.6.0",
+    "tsc-alias": "^1.8.10",
     "tsconfig-paths": "^4.2.0",
     "typescript-eslint": "^7.14.1"
   }

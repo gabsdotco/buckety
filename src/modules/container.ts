@@ -5,9 +5,7 @@ import path from 'path';
 
 import * as tar from 'tar';
 
-import * as logger from '@/lib/logger';
-import chalk from 'chalk';
-import { Stream } from 'stream';
+import * as ui from '@/lib/ui';
 
 export class Container {
   private docker: Docker;
@@ -20,7 +18,10 @@ export class Container {
     try {
       await this.docker.ping();
     } catch {
-      throw new Error('Docker is not running, or you do not have permission to access it');
+      ui.text('Docker is not running, or you do not have permission to access it', { fg: 'red' });
+      ui.text('Exiting...');
+
+      process.exit();
     }
   }
 
@@ -42,39 +43,30 @@ export class Container {
     }
 
     try {
-      await tar.c(
-        {
-          gzip: true,
-          file: tarBallPath,
-          cwd: path.join(currentDir, 'example'),
-        },
-        ['.'],
-      );
+      const fullPath = path.join(currentDir, 'example');
+      await tar.c({ gzip: true, file: tarBallPath, cwd: fullPath }, ['.']);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Error creating tarball: "${error.message.trim()}"`);
+        throw new Error(`Error creating bundle: "${error.message.trim()}"`);
       }
 
-      throw new Error(`Error creating tarball: "${error}"`);
+      throw new Error(`Error creating bundle: "${error}"`);
     }
 
     return tarBallPath;
   }
 
   private async createContainerImage(image: string) {
-    // logger.info(`Checking if image "${image}" is available`);
-    console.log(chalk.blue(`┆ Checking if image "${image}" is available`));
+    ui.text(`Checking if image "${image}" is available`);
 
     const isImageAvailable = await this.checkImageAvailability(image);
 
     if (isImageAvailable) {
-      // logger.info('Image already exists, skipping pull');
-      console.log(chalk.blue(`┆ Image already exists, skipping pull`));
+      ui.text('Image already exists, skipping pull');
       return;
     }
 
-    // logger.warning('Image not found, pulling it from the registry');
-    console.log(chalk.blue(`┆ Image not found, pulling it from the registry`));
+    ui.text('Image not found, pulling it from the registry...');
 
     try {
       const stream = await this.docker.pull(image, {});
@@ -82,25 +74,25 @@ export class Container {
       return new Promise<void>((resolve) => {
         this.docker.modem.followProgress(stream, (error) => {
           if (error) {
-            // logger.error(`Error pulling image: "${error.message.trim()}"`);
-            console.log(chalk.red(`┆ Error pulling image: "${error.message.trim()}"`));
+            ui.text(`Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
+            ui.text('Exiting...');
+
             process.exit();
           }
 
-          // logger.success('Image pulled successfully');
-          console.log(chalk.green(`┆ Image pulled successfully`));
+          ui.text('Image pulled successfully');
 
           resolve();
         });
       });
     } catch (error) {
       if (error instanceof Error) {
-        // logger.error(`Error pulling image: "${error.message.trim()}"`);
-        console.log(chalk.red(`┆ Error pulling image: "${error.message.trim()}"`));
+        ui.text(`Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
       } else {
-        // logger.error(`Error pulling image: "${error}"`);
-        console.log(chalk.red(`┆ Error pulling image: "${error}"`));
+        ui.text(`Error pulling image: "${error}"`, { fg: 'red' });
       }
+
+      ui.text('Exiting...');
 
       process.exit();
     }
@@ -116,16 +108,14 @@ export class Container {
         Tty: true,
       });
 
-      // logger.debug(`Created container with ID: ${container.id.substring(0, 6)}...${container.id.slice(-6)}`);
-      console.log(chalk.blue(`┆ Created container with ID: ${container.id.substring(0, 6)}...${container.id.slice(-6)}`));
+      ui.text(`Created container "${container.id.substring(0, 4)}..${container.id.slice(-4)}"`);
 
       const tarBallPath = await this.createDirectoryBundle();
       const tarStream = fs.createReadStream(tarBallPath);
 
       await container.putArchive(tarStream, { path: '/runner' });
 
-      // logger.debug('Project files copied to container');
-      console.log(chalk.blue(`┆ Project files copied to container`));
+      ui.text('Project files copied to container');
 
       fs.unlinkSync(tarBallPath);
       fs.rmdirSync(path.join(process.cwd(), '.buckety'));
@@ -133,38 +123,38 @@ export class Container {
       return container;
     } catch (error) {
       if (error instanceof Error) {
-        // logger.error(`Error creating container: "${error.message.trim()}"`);
-        console.log(chalk.red(`┆ Error creating container: "${error.message.trim()}"`));
+        ui.text(`Error creating container: "${error.message.trim()}"`, { fg: 'red' });
       } else {
-        // logger.error(`Error creating container: "${error}"`);
-        console.log(chalk.red(`┆ Error creating container: "${error}"`));
+        ui.text(`Error creating container: "${error}"`, { fg: 'red' });
       }
+
+      ui.text('Exiting...');
 
       process.exit();
     }
   }
 
   public async stopAndRemoveContainer(container: Docker.Container) {
-    console.log(chalk.blue(`┆ ┌──────────────────────────────┐`));
-    console.log(chalk.blue(`┆ │ Cleanup                      │`));
-    console.log(chalk.blue(`┆ └──────────────────────────────┘`));
-
-    // logger.debug('Stopping and removing container');
-    console.log(chalk.blue(`┆ Stopping and removing container`));
+    ui.box('Cleanup');
+    ui.text('Stopping and removing container...');
 
     await container.stop();
     await container.remove();
 
-    // logger.debug('Container stopped and removed');
-    console.log(chalk.blue(`┆ Container stopped and removed`));
-    console.log(chalk.blue(`◉`));
+    ui.text('Container stopped and removed');
   }
 
-  public async runContainerScript(container: Docker.Container, script: string): Promise<void> {
+  public async runContainerScript(
+    container: Docker.Container,
+    script: string,
+    scriptIndex: number,
+    totalScripts: number,
+  ) {
     const sanitizedScript = script.replace(/\n/g, '; ');
 
-    // logger.info(`Running script: "${sanitizedScript}"`);
-    console.log(chalk.blue(`┆ ┌ Running script: "${sanitizedScript}"`));
+    if (scriptIndex > 1 && scriptIndex <= totalScripts) ui.divider();
+
+    ui.text(`(${scriptIndex}/${totalScripts}) Running Script: "${sanitizedScript}"`);
 
     const exec = await container.exec({
       Cmd: ['bash', '-c', script],
@@ -173,31 +163,13 @@ export class Container {
       Tty: false,
     });
 
-    // console.log(chalk.blue(`┆ ◈`));
-
-    const stream = await exec.start({});
+    const stream = await exec.start({ hijack: true, stdin: false });
 
     return new Promise<void>((resolve) => {
-      const writeStream = new Stream.Writable();
-
-      writeStream._write = (chunk, _encoding, callback) => {
-        const output = chunk.toString().trim().replace(/\n/g, chalk.blue(`\n┆ │ `));
-
-        if (output) {
-          // logger.info(output);
-          console.log(chalk.blue(`┆ │ ${chalk.green(output)}`));
-        }
-
-        callback();
-      };
-
-      this.docker.modem.demuxStream(stream, writeStream, writeStream);
+      this.docker.modem.demuxStream(stream, process.stdout, process.stderr);
 
       stream.on('error', async (err) => {
-        console.log(chalk.blue(`┆ ◈`));
-
-        // logger.error(`Error executing script: \n\n${err.message}`);
-        console.log(chalk.red(`┆ Error executing script: \n\n${err.message}`));
+        ui.text(`❌Script failed with error: "${err.message}"`, { fg: 'red' });
 
         await this.stopAndRemoveContainer(container);
 
@@ -208,18 +180,13 @@ export class Container {
         const result = await exec.inspect();
 
         if (result.ExitCode !== 0) {
-          console.log(chalk.blue(`┆ ◈`));
-
-          // logger.error(`Script failed with exit code "${result.ExitCode}"`);
-          console.log(chalk.blue(`┆ ${chalk.red(`Script failed with exit code "${result.ExitCode}"`)}`));
+          ui.text(`❌Script failed with code "${result.ExitCode}"`, { fg: 'red' });
 
           await this.stopAndRemoveContainer(container);
 
           process.exit();
         } else {
-          // console.log(chalk.blue(`┆ ◈`));
-          // logger.success('Script executed successfully');
-          console.log(chalk.blue(`┆ └ Script executed successfully`));
+          ui.text('✔️ Script executed successfully', { fg: 'green' });
 
           resolve();
         }

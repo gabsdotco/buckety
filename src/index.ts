@@ -1,25 +1,16 @@
-import { Configuration } from './modules/configuration';
-import { Runner } from './modules/runner';
+import { Command } from 'commander';
 
-const DEFAULT_TEMPLATE_PATH = './example/bitbucket-pipelines.yml';
+import { version } from '../package.json';
 
-const configuration = new Configuration({ path: DEFAULT_TEMPLATE_PATH });
+import { setupRunCommand } from './commands';
 
-const pipeline = configuration.getPipelineByName('default');
-const defaultImage = configuration.getDefaultImage();
+const program = new Command();
 
-const runner = new Runner({ pipeline, defaultImage });
+program
+  .name('buckety')
+  .description('A simple CLI for running Bitbucket Pipelines locally')
+  .version(version);
 
-(async () => {
-  await runner.runPipelineSteps();
+setupRunCommand(program);
 
-  // console.log(JSON.stringify(pipeline, null, 2));
-})();
-
-// [usage]
-// - create a new instance of the Configuration class
-// - create a new instance of the Runner class passing the selected Pipeline by the user
-// - check if Docker is available, if not, exit the process
-// - run the Pipeline steps, which will be a series of Docker commands
-// - each step will be executed in the same container, so we need to keep the container running
-// - we need to pass the variables to the container, so we need to create a volume for that
+program.parse(process.argv);
