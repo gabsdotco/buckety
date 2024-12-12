@@ -4,11 +4,11 @@ import * as ui from '@/lib/ui';
 
 import { Container } from './container';
 
-interface RunnerOptions {
+type RunnerOptions = {
   pipeline: Pipeline;
   pipelineName: string;
   defaultImage: string;
-}
+};
 
 export class Runner {
   private pipeline: Pipeline;

@@ -8,6 +8,7 @@ const DEFAULT_TEMPLATE_PATH = './bitbucket-pipelines.yml';
 
 type RunOptions = {
   template: string;
+  variables: string;
 };
 
 export const setupRunCommand = (program: Command) =>
@@ -15,13 +16,19 @@ export const setupRunCommand = (program: Command) =>
     .command('run')
     .argument('[pipeline]', 'Name of the Bitbucket Pipeline to run', DEFAULT_PIPELINE_NAME)
     .description('Run a Bitbucket Pipeline locally')
+    .option('-v, --variables [values]', 'Comma-separated variables to be injected on the Pipeline')
     .option(
       '-t, --template [path]',
       'Path to the Bitbucket Pipelines template file',
       DEFAULT_TEMPLATE_PATH,
     )
     .action((pipelineName: string, options: RunOptions) => {
-      const { template } = options;
+      const { template, variables } = options;
+
+      if (variables) {
+        // const regex = /^(\s*[A-Z_]+=\S+\s*)(,\s*[A-Z_]+=\S+\s*)*$/;
+        // const validValue = regex.test(variables);
+      }
 
       const configuration = new Configuration({ path: template });
 
