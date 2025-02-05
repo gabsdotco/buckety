@@ -2,9 +2,10 @@ import { Command } from 'commander';
 
 import { Runner } from '@/modules/runner';
 import { Configuration } from '@/modules/configuration';
+import { Environment } from '@/modules/environment';
 
 const DEFAULT_PIPELINE_NAME = 'default';
-const DEFAULT_TEMPLATE_PATH = './bitbucket-pipelines.yml';
+const DEFAULT_TEMPLATE_PATH = './example/bitbucket-pipelines.yml';
 
 type RunOptions = {
   template: string;
@@ -22,13 +23,18 @@ export const setupRunCommand = (program: Command) =>
       'Path to the Bitbucket Pipelines template file',
       DEFAULT_TEMPLATE_PATH,
     )
-    .action((pipelineName: string, options: RunOptions) => {
+    .action(async (pipelineName: string, options: RunOptions) => {
       const { template, variables } = options;
 
       if (variables) {
-        // const regex = /^(\s*[A-Z_]+=\S+\s*)(,\s*[A-Z_]+=\S+\s*)*$/;
-        // const validValue = regex.test(variables);
+        console.log({ variables });
+
+        const env = new Environment({
+          variables,
+        });
       }
+
+      return;
 
       const configuration = new Configuration({ path: template });
 
@@ -37,5 +43,6 @@ export const setupRunCommand = (program: Command) =>
 
       const runner = new Runner({ pipeline, pipelineName, defaultImage });
 
-      (async () => await runner.runPipelineSteps())();
+      // (async () => await runner.runPipelineSteps())();
+      await runner.runPipelineSteps();
     });
