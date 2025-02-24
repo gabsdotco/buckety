@@ -1,31 +1,33 @@
-import type { Pipeline, Step } from '@/types';
+import type { Step } from '@/types';
 
 import * as ui from '@/lib/ui';
 
 import { Container } from './container';
+import { Environment } from './environment';
+import { Configuration } from './configuration';
 
 type RunnerOptions = {
-  pipeline: Pipeline;
-  pipelineName: string;
-  defaultImage: string;
+  name: string;
+  environment: Environment;
+  configuration: Configuration;
 };
 
 export class Runner {
-  private pipeline: Pipeline;
-  private pipelineName: string;
-  private defaultImage: string;
+  private name: string;
 
   private container: Container;
+  private environment: Environment;
+  private configuration: Configuration;
 
   constructor(options: RunnerOptions) {
-    this.pipeline = options.pipeline;
-    this.pipelineName = options.pipelineName;
-    this.defaultImage = options.defaultImage;
+    this.name = options.name;
+    this.environment = options.environment;
+    this.configuration = options.configuration;
 
     this.container = new Container();
   }
 
-  private async executeStep(step: Step) {
+  private async runStep(step: Step) {
     ui.text(`\n[Running Step: "${step.name || 'Unknown'}"]`, { bold: true });
 
     if (!step.script.length) {
@@ -37,13 +39,16 @@ export class Runner {
 
     ui.box('Setup');
 
+    const defaultImage = this.configuration.getDefaultImage();
+
     if (!step.image) {
-      ui.text(`No image found, using default: "${this.defaultImage}"`);
+      ui.text(`No image found, using default: "${defaultImage}"`);
     }
 
-    const image = step.image || this.defaultImage;
+    const image = step.image || defaultImage;
+    const variables = this.environment.getContainerFormatVariables();
 
-    const container = await this.container.createAndSetupContainer(image);
+    const container = await this.container.createAndSetupContainer(image, variables);
 
     await container.start();
 
@@ -58,7 +63,9 @@ export class Runner {
   }
 
   public async runPipelineSteps() {
-    ui.text(`[Starting Pipeline: "${this.pipelineName}"]`, { bold: true });
+    const pipeline = this.configuration.getPipelineByName(this.name);
+
+    ui.text(`[Starting Pipeline: "${this.name}"]`, { bold: true });
     ui.text('Checking Docker availability...');
 
     await this.container.checkDockerAvailability();
@@ -66,7 +73,7 @@ export class Runner {
     ui.text('Docker is available');
     ui.text('Starting steps...');
 
-    for (const { step } of this.pipeline) {
+    for (const { step } of pipeline) {
       if (!step) {
         ui.text('No step found');
         ui.text('Exiting...');
@@ -74,7 +81,7 @@ export class Runner {
         process.exit();
       }
 
-      await this.executeStep(step);
+      await this.runStep(step);
     }
   }
 }

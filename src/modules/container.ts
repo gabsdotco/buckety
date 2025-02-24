@@ -98,14 +98,23 @@ export class Container {
     }
   }
 
-  public async createAndSetupContainer(image: string): Promise<Docker.Container> {
+  public async createAndSetupContainer(
+    image: string,
+    variables: string[],
+  ): Promise<Docker.Container> {
     try {
       await this.createContainerImage(image);
 
+      if (variables.length) {
+        ui.text(`Initializing container with variables:`);
+        variables.map((variable) => ui.text(`- ${variable}`));
+      }
+
       const container = await this.docker.createContainer({
+        Tty: true,
+        Env: variables,
         Image: image,
         WorkingDir: '/runner',
-        Tty: true,
       });
 
       ui.text(`Created container "${container.id.substring(0, 4)}..${container.id.slice(-4)}"`);
@@ -169,7 +178,7 @@ export class Container {
       this.docker.modem.demuxStream(stream, process.stdout, process.stderr);
 
       stream.on('error', async (err) => {
-        ui.text(`❌Script failed with error: "${err.message}"`, { fg: 'red' });
+        ui.text(`Script failed with error: "${err.message}"`, { fg: 'red' });
 
         await this.stopAndRemoveContainer(container);
 
@@ -180,13 +189,13 @@ export class Container {
         const result = await exec.inspect();
 
         if (result.ExitCode !== 0) {
-          ui.text(`❌Script failed with code "${result.ExitCode}"`, { fg: 'red' });
+          ui.text(`Script failed with code "${result.ExitCode}"`, { fg: 'red' });
 
           await this.stopAndRemoveContainer(container);
 
           process.exit();
         } else {
-          ui.text('✔️ Script executed successfully', { fg: 'green' });
+          ui.text('Script executed successfully', { fg: 'green' });
 
           resolve();
         }
