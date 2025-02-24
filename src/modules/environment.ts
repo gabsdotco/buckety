@@ -1,4 +1,8 @@
+import fs from 'node:fs';
+
 import * as env from 'dotenv';
+
+import * as ui from '@/lib/ui';
 
 import { FILE_PATH_REGEX, VARIABLES_LIST_REGEX } from '@/lib/regex';
 
@@ -7,7 +11,7 @@ type EnvironmentOptions = {
 };
 
 export class Environment {
-  // private variables: Record<string, string>;
+  public variables: Record<string, string> = {};
 
   constructor(options: EnvironmentOptions) {
     if (options.variables) {
@@ -15,31 +19,68 @@ export class Environment {
     }
   }
 
+  public getContainerFormatVariables() {
+    const varsKeys = Object.keys(this.variables);
+
+    if (varsKeys.length) {
+      const varsEntries = Object.entries(this.variables);
+      return varsEntries.map(([key, value]) => `${key}=${value}`);
+    }
+
+    return [];
+  }
+
   private setupVariables(variables: string) {
     const isFilePath = FILE_PATH_REGEX.test(variables);
     const isManualVariables = VARIABLES_LIST_REGEX.test(variables);
 
-    console.log({ isFilePath, isManualVariables });
+    if (!isFilePath && !isManualVariables) {
+      ui.text(`The "--variables" parameter must be a valid path or comma separated key-value`, {
+        fg: 'red',
+      });
+
+      process.exit();
+    }
 
     if (isFilePath) {
       const vars = this.loadVariablesFromFile(variables);
-
-      console.log({ vars });
+      this.variables = vars;
     }
 
-    if (!isManualVariables) {
-      // Throw error
+    if (isManualVariables) {
+      const vars = this.parseManualVariables(variables);
+      this.variables = vars;
     }
-
-    // const vars = this.parseManualVariables(variables);
-
-    // this.variables = vars;
   }
 
-  private loadVariablesFromFile(path: string) {
-    const vars = env.parse(path);
+  private loadVariablesFromFile(filePath: string) {
+    if (!fs.existsSync(filePath)) {
+      ui.text(`File not found: ${filePath}`, { fg: 'red' });
+      process.exit();
+    }
+
+    const file = fs.readFileSync(filePath);
+    const vars = env.parse(file);
+
     return vars;
   }
 
-  // private parseManualVariables(variables: string) {}
+  private parseManualVariables(variables: string) {
+    const parsedVars: Record<string, string> = {};
+
+    variables.split(',').forEach((pair) => {
+      const trimmed = pair.trim();
+
+      if (!trimmed) return;
+
+      const [rawKey, ...rawValueParts] = trimmed.split('=');
+
+      const key = rawKey?.trim();
+      const value = rawValueParts.join('=').trim();
+
+      parsedVars[key] = value;
+    });
+
+    return parsedVars;
+  }
 }
