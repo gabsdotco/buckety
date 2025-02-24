@@ -5,8 +5,8 @@ definitions:
     - script: &scalar |-
         ls -la
         TEST='FOO'
-        echo "hello second line"
         echo $TEST
+        printenv
 
   steps:
     - step: &install
