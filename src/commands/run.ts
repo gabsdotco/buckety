@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import { Runner } from '@/modules/runner';
+import { Artifacts } from '@/modules/artifacts';
 import { Environment } from '@/modules/environment';
 import { Configuration } from '@/modules/configuration';
 
@@ -29,11 +30,13 @@ export const setupRunCommand = (program: Command) =>
     .action(async (name: string, options: RunOptions) => {
       const { template: path, variables } = options;
 
+      const artifacts = new Artifacts();
       const environment = new Environment({ variables });
       const configuration = new Configuration({ path });
 
       const runner = new Runner({
         name,
+        artifacts,
         environment,
         configuration,
       });

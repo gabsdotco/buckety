@@ -2,12 +2,14 @@ import type { Step } from '@/types';
 
 import * as ui from '@/lib/ui';
 
+import { Artifacts } from './artifacts';
 import { Container } from './container';
 import { Environment } from './environment';
 import { Configuration } from './configuration';
 
 type RunnerOptions = {
   name: string;
+  artifacts: Artifacts;
   environment: Environment;
   configuration: Configuration;
 };
@@ -15,17 +17,21 @@ type RunnerOptions = {
 export class Runner {
   private name: string;
 
+  private artifacts: Artifacts;
   private container: Container;
   private environment: Environment;
   private configuration: Configuration;
 
   constructor(options: RunnerOptions) {
     this.name = options.name;
+    this.artifacts = options.artifacts;
     this.environment = options.environment;
     this.configuration = options.configuration;
 
     this.container = new Container();
   }
+
+  private async uploadArtifacts() {}
 
   private async runStep(step: Step) {
     ui.text(`\n[Running Step: "${step.name || 'Unknown'}"]`, { bold: true });
@@ -41,25 +47,23 @@ export class Runner {
 
     const defaultImage = this.configuration.getDefaultImage();
 
-    if (!step.image) {
-      ui.text(`No image found, using default: "${defaultImage}"`);
-    }
+    if (!step.image) ui.text(`No image found, using default: "${defaultImage}"`);
 
     const image = step.image || defaultImage;
     const variables = this.environment.getContainerFormatVariables();
 
-    const container = await this.container.createAndSetupContainer(image, variables);
+    const stepContainer = await this.container.createAndSetupContainer(image, variables);
 
-    await container.start();
+    await stepContainer.start();
 
     ui.text('Container started');
     ui.box('Scripts');
 
     for (const [index, script] of step.script.entries()) {
-      await this.container.runContainerScript(container, script, index + 1, step.script.length);
+      await this.container.runContainerScript(stepContainer, script, index + 1, step.script.length);
     }
 
-    await this.container.stopAndRemoveContainer(container);
+    await this.container.stopAndRemoveContainer(stepContainer);
   }
 
   public async runPipelineSteps() {
