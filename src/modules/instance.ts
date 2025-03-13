@@ -7,14 +7,18 @@ import * as tar from 'tar';
 
 import * as ui from '@/lib/ui';
 
-export class Container {
+import { Image } from './image';
+
+export class Instance {
+  private image: Image;
   private docker: Docker;
 
   constructor() {
+    this.image = new Image();
     this.docker = new Docker();
   }
 
-  public async checkDockerAvailability() {
+  public async checkAvailability() {
     try {
       await this.docker.ping();
     } catch {
@@ -25,26 +29,29 @@ export class Container {
     }
   }
 
-  private async checkImageAvailability(image: string): Promise<boolean> {
-    const availableImages = await this.docker.listImages();
-    return availableImages.some((img) => img.RepoTags?.includes(image));
-  }
-
   private async createDirectoryBundle(): Promise<string> {
     const currentDir = process.cwd();
 
-    const bundleDir = path.join(currentDir, '.buckety');
-    const tarBallPath = path.join(bundleDir, 'project.tar');
+    const artifactsDirectoryPath = path.join(currentDir, '.buckety');
+    const targetTarballPath = path.join(artifactsDirectoryPath, 'project.tar');
 
-    if (!fs.existsSync(bundleDir)) {
-      fs.mkdirSync(bundleDir, {
+    if (!fs.existsSync(artifactsDirectoryPath)) {
+      fs.mkdirSync(artifactsDirectoryPath, {
         recursive: true,
       });
     }
 
     try {
-      const fullPath = path.join(currentDir, 'example');
-      await tar.c({ gzip: true, file: tarBallPath, cwd: fullPath }, ['.']);
+      const targetDirectoryPath = path.join(currentDir, 'example');
+
+      await tar.c(
+        {
+          gzip: true,
+          cwd: targetDirectoryPath,
+          file: targetTarballPath,
+        },
+        ['.'],
+      );
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(`Error creating bundle: "${error.message.trim()}"`);
@@ -53,57 +60,12 @@ export class Container {
       throw new Error(`Error creating bundle: "${error}"`);
     }
 
-    return tarBallPath;
+    return targetTarballPath;
   }
 
-  private async createContainerImage(image: string) {
-    ui.text(`Checking if image "${image}" is available`);
-
-    const isImageAvailable = await this.checkImageAvailability(image);
-
-    if (isImageAvailable) {
-      ui.text('Image already exists, skipping pull');
-      return;
-    }
-
-    ui.text('Image not found, pulling it from the registry...');
-
+  public async createInstance(image: string, variables: string[]): Promise<Docker.Container> {
     try {
-      const stream = await this.docker.pull(image, {});
-
-      return new Promise<void>((resolve) => {
-        this.docker.modem.followProgress(stream, (error) => {
-          if (error) {
-            ui.text(`Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
-            ui.text('Exiting...');
-
-            process.exit();
-          }
-
-          ui.text('Image pulled successfully');
-
-          resolve();
-        });
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        ui.text(`Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
-      } else {
-        ui.text(`Error pulling image: "${error}"`, { fg: 'red' });
-      }
-
-      ui.text('Exiting...');
-
-      process.exit();
-    }
-  }
-
-  public async createAndSetupContainer(
-    image: string,
-    variables: string[],
-  ): Promise<Docker.Container> {
-    try {
-      await this.createContainerImage(image);
+      await this.image.pullImage(image);
 
       if (variables.length) {
         ui.text(`Initializing container with variables:`);
@@ -143,7 +105,7 @@ export class Container {
     }
   }
 
-  public async stopAndRemoveContainer(container: Docker.Container) {
+  public async removeInstance(container: Docker.Container) {
     ui.box('Cleanup');
     ui.text('Stopping and removing container...');
 
@@ -153,7 +115,7 @@ export class Container {
     ui.text('Container stopped and removed');
   }
 
-  public async runContainerScript(
+  public async runInstanceScript(
     container: Docker.Container,
     script: string,
     scriptIndex: number,
@@ -180,7 +142,7 @@ export class Container {
       stream.on('error', async (err) => {
         ui.text(`Script failed with error: "${err.message}"`, { fg: 'red' });
 
-        await this.stopAndRemoveContainer(container);
+        await this.removeInstance(container);
 
         process.exit();
       });
@@ -191,7 +153,7 @@ export class Container {
         if (result.ExitCode !== 0) {
           ui.text(`Script failed with code "${result.ExitCode}"`, { fg: 'red' });
 
-          await this.stopAndRemoveContainer(container);
+          await this.removeInstance(container);
 
           process.exit();
         } else {

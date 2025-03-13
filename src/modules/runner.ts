@@ -3,7 +3,7 @@ import type { Step } from '@/types';
 import * as ui from '@/lib/ui';
 
 import { Artifacts } from './artifacts';
-import { Container } from './container';
+import { Instance } from './instance';
 import { Environment } from './environment';
 import { Configuration } from './configuration';
 
@@ -18,7 +18,7 @@ export class Runner {
   private name: string;
 
   private artifacts: Artifacts;
-  private container: Container;
+  private instance: Instance;
   private environment: Environment;
   private configuration: Configuration;
 
@@ -28,12 +28,10 @@ export class Runner {
     this.environment = options.environment;
     this.configuration = options.configuration;
 
-    this.container = new Container();
+    this.instance = new Instance();
   }
 
-  private async uploadArtifacts() {}
-
-  private async runStep(step: Step) {
+  private async runPipelineStep(step: Step) {
     ui.text(`\n[Running Step: "${step.name || 'Unknown'}"]`, { bold: true });
 
     if (!step.script.length) {
@@ -52,7 +50,7 @@ export class Runner {
     const image = step.image || defaultImage;
     const variables = this.environment.getContainerFormatVariables();
 
-    const stepContainer = await this.container.createAndSetupContainer(image, variables);
+    const stepContainer = await this.instance.createInstance(image, variables);
 
     await stepContainer.start();
 
@@ -60,10 +58,10 @@ export class Runner {
     ui.box('Scripts');
 
     for (const [index, script] of step.script.entries()) {
-      await this.container.runContainerScript(stepContainer, script, index + 1, step.script.length);
+      await this.instance.runInstanceScript(stepContainer, script, index + 1, step.script.length);
     }
 
-    await this.container.stopAndRemoveContainer(stepContainer);
+    await this.instance.removeInstance(stepContainer);
   }
 
   public async runPipelineSteps() {
@@ -72,7 +70,7 @@ export class Runner {
     ui.text(`[Starting Pipeline: "${this.name}"]`, { bold: true });
     ui.text('Checking Docker availability...');
 
-    await this.container.checkDockerAvailability();
+    await this.instance.checkAvailability();
 
     ui.text('Docker is available');
     ui.text('Starting steps...');
@@ -85,7 +83,7 @@ export class Runner {
         process.exit();
       }
 
-      await this.runStep(step);
+      await this.runPipelineStep(step);
     }
   }
 }
