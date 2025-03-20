@@ -1,21 +1,26 @@
 import Docker from 'dockerode';
 
 import fs from 'fs';
-import path from 'path';
-
-import * as tar from 'tar';
 
 import * as ui from '@/lib/ui';
 
 import { Image } from './image';
+import { Artifacts } from './artifacts';
+
+type InstanceOptions = {
+  artifacts: Artifacts;
+};
 
 export class Instance {
   private image: Image;
   private docker: Docker;
+  private artifacts: Artifacts;
 
-  constructor() {
+  constructor(options: InstanceOptions) {
     this.image = new Image();
     this.docker = new Docker();
+
+    this.artifacts = options.artifacts;
   }
 
   public async checkAvailability() {
@@ -27,40 +32,6 @@ export class Instance {
 
       process.exit();
     }
-  }
-
-  private async createDirectoryBundle(): Promise<string> {
-    const currentDir = process.cwd();
-
-    const artifactsDirectoryPath = path.join(currentDir, '.buckety');
-    const targetTarballPath = path.join(artifactsDirectoryPath, 'project.tar');
-
-    if (!fs.existsSync(artifactsDirectoryPath)) {
-      fs.mkdirSync(artifactsDirectoryPath, {
-        recursive: true,
-      });
-    }
-
-    try {
-      const targetDirectoryPath = path.join(currentDir, 'example');
-
-      await tar.c(
-        {
-          gzip: true,
-          cwd: targetDirectoryPath,
-          file: targetTarballPath,
-        },
-        ['.'],
-      );
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Error creating bundle: "${error.message.trim()}"`);
-      }
-
-      throw new Error(`Error creating bundle: "${error}"`);
-    }
-
-    return targetTarballPath;
   }
 
   public async createInstance(image: string, variables: string[]): Promise<Docker.Container> {
@@ -80,16 +51,16 @@ export class Instance {
       });
 
       ui.text(`Created container "${container.id.substring(0, 4)}..${container.id.slice(-4)}"`);
+      ui.text('Copying current directory to container');
 
-      const tarBallPath = await this.createDirectoryBundle();
-      const tarStream = fs.createReadStream(tarBallPath);
+      const artifactPath = await this.artifacts.storeArtifact('./example', 'project');
+      const artifactStream = fs.createReadStream(artifactPath);
 
-      await container.putArchive(tarStream, { path: '/runner' });
+      await container.putArchive(artifactStream, {
+        path: '/runner',
+      });
 
-      ui.text('Project files copied to container');
-
-      fs.unlinkSync(tarBallPath);
-      fs.rmdirSync(path.join(process.cwd(), '.buckety'));
+      ui.text('Directory files copied to container');
 
       return container;
     } catch (error) {

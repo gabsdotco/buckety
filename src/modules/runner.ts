@@ -28,7 +28,9 @@ export class Runner {
     this.environment = options.environment;
     this.configuration = options.configuration;
 
-    this.instance = new Instance();
+    this.instance = new Instance({
+      artifacts: options.artifacts,
+    });
   }
 
   private async runPipelineStep(step: Step) {
@@ -45,7 +47,7 @@ export class Runner {
 
     const defaultImage = this.configuration.getDefaultImage();
 
-    if (!step.image) ui.text(`No image found, using default: "${defaultImage}"`);
+    if (!step.image) ui.text(`No image found for this step, using default: "${defaultImage}"`);
 
     const image = step.image || defaultImage;
     const variables = this.environment.getContainerFormatVariables();
