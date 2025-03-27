@@ -16,42 +16,35 @@ export class Artifacts {
   }
 
   private getArtifactsDirectory() {
-    const currentDir = process.cwd();
-    const artifactsDirPath = path.join(currentDir, this.path, this.id, 'artifacts');
+    const currentPath = process.cwd();
+    const artifactsPath = path.join(currentPath, this.path, this.id, 'artifacts');
 
-    if (!fs.existsSync(artifactsDirPath)) {
-      fs.mkdirSync(artifactsDirPath, { recursive: true });
+    if (!fs.existsSync(artifactsPath)) {
+      fs.mkdirSync(artifactsPath, { recursive: true });
     }
 
-    return artifactsDirPath;
+    return artifactsPath;
   }
 
   // public getArtifact(path: string) {}
   // public deleteArtifact(path: string) {}
 
-  public async storeArtifact(target: string, name: string) {
-    const currentDir = process.cwd();
+  public async storeArtifact(origin: string, name: string) {
+    const currentPath = process.cwd();
 
-    const artifactsDirPath = this.getArtifactsDirectory();
-    const targetTarballPath = path.join(artifactsDirPath, `${name}.tar`);
+    const artifactsPath = this.getArtifactsDirectory();
+    const destinationPath = path.join(artifactsPath, `${name}.tar`);
 
-    ui.text(`Saving "${target}" into "${artifactsDirPath}"`);
+    ui.text(`Saving "${origin}" into "${artifactsPath}"`);
 
     try {
-      const targetDirectoryPath = path.join(currentDir, target);
+      const originPath = path.join(currentPath, origin);
 
-      await tar.c(
-        {
-          gzip: true,
-          cwd: targetDirectoryPath,
-          file: targetTarballPath,
-        },
-        ['.'],
-      );
+      await tar.c({ cwd: originPath, file: destinationPath }, ['.']);
 
-      ui.text(`Saved "${target}" into the artifacts folder`);
+      ui.text(`Saved "${origin}" into the artifacts folder`);
 
-      return targetTarballPath;
+      return destinationPath;
     } catch (error) {
       if (error instanceof Error) throw new Error(`Error creating artifact: "${error.message}"`);
       throw new Error(`Error creating artifact: "${error}"`);
