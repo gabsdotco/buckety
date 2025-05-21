@@ -52,29 +52,27 @@ export class Runner {
     const image = step.image || defaultImage;
     const variables = this.environment.getContainerFormatVariables();
 
-    const stepContainer = await this.instance.createInstance(image, variables);
+    const stepInstance = await this.instance.createInstance(image, variables);
 
-    await stepContainer.start();
+    await stepInstance.start();
 
     ui.text('Container started');
     ui.box('Scripts');
 
     for (const [index, script] of step.script.entries()) {
-      await this.instance.runInstanceScript(stepContainer, script, index + 1, step.script.length);
+      await this.instance.runInstanceScript(stepInstance, script, index + 1, step.script.length);
     }
 
-    await this.instance.removeInstance(stepContainer);
+    await this.instance.removeInstance(stepInstance);
   }
 
   public async runPipelineSteps() {
     const pipeline = this.configuration.getPipelineByName(this.name);
 
     ui.text(`[Starting Pipeline: "${this.name}"]`, { bold: true });
-    ui.text('Checking Docker availability...');
 
     await this.instance.checkAvailability();
 
-    ui.text('Docker is available');
     ui.text('Starting steps...');
 
     for (const { step } of pipeline) {

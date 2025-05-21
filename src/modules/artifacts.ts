@@ -35,7 +35,7 @@ export class Artifacts {
     const artifactsPath = this.getArtifactsDirectory();
     const destinationPath = path.join(artifactsPath, `${name}.tar`);
 
-    ui.text(`Saving "${origin}" into "${artifactsPath}"`);
+    ui.text(`Saving "${origin}" into "${destinationPath}"`);
 
     try {
       const originPath = path.join(currentPath, origin);

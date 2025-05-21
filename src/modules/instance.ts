@@ -24,8 +24,12 @@ export class Instance {
   }
 
   public async checkAvailability() {
+    ui.text('Checking Docker availability...');
+
     try {
       await this.docker.ping();
+
+      ui.text('Docker is available');
     } catch {
       ui.text('Docker is not running, or you do not have permission to access it', { fg: 'red' });
       ui.text('Exiting...');
@@ -39,35 +43,35 @@ export class Instance {
       await this.image.pullImage(image);
 
       if (variables.length) {
-        ui.text(`Initializing container with variables:`);
+        ui.text(`Initializing instance with variables:`);
         variables.map((variable) => ui.text(`- ${variable}`));
       }
 
-      const container = await this.docker.createContainer({
+      const instance = await this.docker.createContainer({
         Tty: true,
         Env: variables,
         Image: image,
         WorkingDir: '/runner',
       });
 
-      ui.text(`Created container "${container.id.substring(0, 4)}..${container.id.slice(-4)}"`);
-      ui.text('Copying current directory to container');
+      ui.text(`Created instance "${instance.id.substring(0, 4)}..${instance.id.slice(-4)}"`);
+      ui.text('Copying current directory to instance');
 
       const artifactPath = await this.artifacts.storeArtifact('./example', 'project');
       const artifactStream = fs.createReadStream(artifactPath);
 
-      await container.putArchive(artifactStream, {
+      await instance.putArchive(artifactStream, {
         path: '/runner',
       });
 
-      ui.text('Directory files copied to container');
+      ui.text('Directory files copied to instance');
 
-      return container;
+      return instance;
     } catch (error) {
       if (error instanceof Error) {
-        ui.text(`Error creating container: "${error.message.trim()}"`, { fg: 'red' });
+        ui.text(`Error creating instance: "${error.message.trim()}"`, { fg: 'red' });
       } else {
-        ui.text(`Error creating container: "${error}"`, { fg: 'red' });
+        ui.text(`Error creating instance: "${error}"`, { fg: 'red' });
       }
 
       ui.text('Exiting...');
@@ -76,18 +80,18 @@ export class Instance {
     }
   }
 
-  public async removeInstance(container: Docker.Container) {
+  public async removeInstance(instance: Docker.Container) {
     ui.box('Cleanup');
-    ui.text('Stopping and removing container...');
+    ui.text('Stopping and removing instance...');
 
-    await container.stop();
-    await container.remove();
+    await instance.stop();
+    await instance.remove();
 
-    ui.text('Container stopped and removed');
+    ui.text('Instance stopped and removed');
   }
 
   public async runInstanceScript(
-    container: Docker.Container,
+    instance: Docker.Container,
     script: string,
     scriptIndex: number,
     totalScripts: number,
@@ -98,7 +102,7 @@ export class Instance {
 
     ui.text(`(${scriptIndex}/${totalScripts}) Running Script: "${sanitizedScript}"`);
 
-    const exec = await container.exec({
+    const exec = await instance.exec({
       Cmd: ['bash', '-c', script],
       AttachStdout: true,
       AttachStderr: true,
@@ -113,7 +117,7 @@ export class Instance {
       stream.on('error', async (err) => {
         ui.text(`Script failed with error: "${err.message}"`, { fg: 'red' });
 
-        await this.removeInstance(container);
+        await this.removeInstance(instance);
 
         process.exit();
       });
@@ -124,7 +128,7 @@ export class Instance {
         if (result.ExitCode !== 0) {
           ui.text(`Script failed with code "${result.ExitCode}"`, { fg: 'red' });
 
-          await this.removeInstance(container);
+          await this.removeInstance(instance);
 
           process.exit();
         } else {
