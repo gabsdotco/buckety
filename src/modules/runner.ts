@@ -2,14 +2,12 @@ import type { Step } from '@/types';
 
 import * as ui from '@/lib/ui';
 
-import { Artifacts } from './artifacts';
 import { Instance } from './instance';
 import { Environment } from './environment';
 import { Configuration } from './configuration';
 
 type RunnerOptions = {
   name: string;
-  artifacts: Artifacts;
   environment: Environment;
   configuration: Configuration;
 };
@@ -17,20 +15,16 @@ type RunnerOptions = {
 export class Runner {
   private name: string;
 
-  private artifacts: Artifacts;
   private instance: Instance;
   private environment: Environment;
   private configuration: Configuration;
 
   constructor(options: RunnerOptions) {
     this.name = options.name;
-    this.artifacts = options.artifacts;
     this.environment = options.environment;
     this.configuration = options.configuration;
 
-    this.instance = new Instance({
-      artifacts: options.artifacts,
-    });
+    this.instance = new Instance();
   }
 
   private async runPipelineStep(step: Step) {

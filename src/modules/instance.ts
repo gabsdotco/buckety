@@ -1,26 +1,19 @@
 import Docker from 'dockerode';
 
-import fs from 'fs';
+import path from 'path';
+import tar from 'tar-fs';
 
 import * as ui from '@/lib/ui';
 
 import { Image } from './image';
-import { Artifacts } from './artifacts';
-
-type InstanceOptions = {
-  artifacts: Artifacts;
-};
 
 export class Instance {
   private image: Image;
   private docker: Docker;
-  private artifacts: Artifacts;
 
-  constructor(options: InstanceOptions) {
+  constructor() {
     this.image = new Image();
     this.docker = new Docker();
-
-    this.artifacts = options.artifacts;
   }
 
   public async checkAvailability() {
@@ -57,10 +50,11 @@ export class Instance {
       ui.text(`Created instance "${instance.id.substring(0, 4)}..${instance.id.slice(-4)}"`);
       ui.text('Copying current directory to instance');
 
-      const artifactPath = await this.artifacts.storeArtifact('./example', 'project');
-      const artifactStream = fs.createReadStream(artifactPath);
+      // @TODO: make the path configurable through CLI options
+      const workingDir = path.join(process.cwd(), './example');
+      const workingDirTarStream = tar.pack(workingDir);
 
-      await instance.putArchive(artifactStream, {
+      await instance.putArchive(workingDirTarStream, {
         path: '/runner',
       });
 
