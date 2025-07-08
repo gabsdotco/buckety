@@ -21,6 +21,22 @@ definitions:
         script:
           - *scalar
 
+    - step: &artifact
+        name: 'Export Artifact'
+        script:
+          - echo "Exporting artifact"
+          - mkdir -p artifacts
+          - echo "This is a test artifact" > artifacts/test.txt
+        artifacts:
+          - artifacts/**
+
+    - step: &artifact-consumer
+        name: 'Consume Artifact'
+        script:
+          - echo "Consuming artifact"
+          - ls -la artifacts
+          - cat artifacts/test.txt
+
 pipelines:
   tags:
     '*.*.*':
@@ -30,6 +46,8 @@ pipelines:
   default:
     - step: *install
     - step: *export
+    - step: *artifact
+    - step: *artifact-consumer
 
   branches:
     develop:
