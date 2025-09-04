@@ -7,6 +7,7 @@ const icons = {
   BOTTOM_RIGHT_CORNER: '╯',
   VERTICAL_LINE: '│',
   HORIZONTAL_LINE: '─',
+  DOT: '○',
 };
 
 type OutputOptions = {
@@ -18,7 +19,7 @@ type OutputOptions = {
 const styles = (line: string, options?: OutputOptions) => {
   let output = line;
 
-  const { bg, fg = 'white', bold } = options || {};
+  const { bg, fg = 'white', bold = false } = options || {};
 
   if (fg) output = chalk[fg](output);
   if (bg) output = chalk[bg](output);
@@ -28,7 +29,7 @@ const styles = (line: string, options?: OutputOptions) => {
 };
 
 export const box = (text: string, options?: OutputOptions) => {
-  const length = 35;
+  const length = (process.stdout.columns || 80) - 2;
 
   const top = `${icons.TOP_LEFT_CORNER}${icons.HORIZONTAL_LINE.repeat(length)}${icons.TOP_RIGHT_CORNER}`;
   const middle = `${icons.VERTICAL_LINE} ${text.padEnd(length - 2, ' ')} ${icons.VERTICAL_LINE}`;
@@ -37,10 +38,30 @@ export const box = (text: string, options?: OutputOptions) => {
   [top, middle, bottom].forEach((line) => process.stdout.write(styles(line, options) + '\n'));
 };
 
+export const output = (text: string, options?: OutputOptions) => {
+  const lines = text.split('\n');
+
+  const maxLength = Math.max(...lines.map((l) => l.length));
+  const length = Math.max(35, maxLength);
+
+  const top = `${icons.TOP_LEFT_CORNER}${icons.HORIZONTAL_LINE}${icons.DOT}`;
+  const bottom = `${icons.BOTTOM_LEFT_CORNER}${icons.HORIZONTAL_LINE}${icons.DOT}`;
+
+  process.stdout.write(styles(top, options) + '\n');
+
+  lines.forEach((line) => {
+    const middle = `${icons.VERTICAL_LINE} ${line.padEnd(length, ' ')}`;
+    process.stdout.write(styles(middle, options) + '\n');
+  });
+
+  process.stdout.write(styles(bottom, options) + '\n');
+};
+
 export const text = (text: string, options?: OutputOptions) => {
   process.stdout.write(styles(text, options) + '\n');
 };
 
 export const divider = (options?: OutputOptions) => {
-  process.stdout.write(styles(icons.HORIZONTAL_LINE.repeat(37), options) + '\n');
+  const length = process.stdout.columns || 80;
+  process.stdout.write(styles(icons.HORIZONTAL_LINE.repeat(length), options) + '\n');
 };

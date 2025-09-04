@@ -1,4 +1,5 @@
 import Docker from 'dockerode';
+import { Writable } from 'stream';
 
 import path from 'path';
 import tar from 'tar-fs';
@@ -36,7 +37,7 @@ export class Instance {
       await this.image.pullImage(image);
 
       if (variables.length) {
-        ui.text(`Initializing instance with variables:`);
+        ui.text(`- Initializing instance with variables:`);
         variables.map((variable) => ui.text(`- ${variable}`));
       }
 
@@ -47,8 +48,8 @@ export class Instance {
         WorkingDir: '/runner',
       });
 
-      ui.text(`Created instance "${instance.id.substring(0, 4)}..${instance.id.slice(-4)}"`);
-      ui.text('Copying current directory to instance');
+      ui.text(`- Created instance "${instance.id.substring(0, 4)}..${instance.id.slice(-4)}"`);
+      ui.text('- Copying current directory to instance');
 
       // @TODO: make the path configurable through CLI options
       const workingDir = path.join(process.cwd(), './example');
@@ -58,17 +59,17 @@ export class Instance {
         path: '/runner',
       });
 
-      ui.text('Directory files copied to instance');
+      ui.text('- Directory files copied to instance');
 
       return instance;
     } catch (error) {
       if (error instanceof Error) {
-        ui.text(`Error creating instance: "${error.message.trim()}"`, { fg: 'red' });
+        ui.text(`- Error creating instance: "${error.message.trim()}"`, { fg: 'red' });
       } else {
-        ui.text(`Error creating instance: "${error}"`, { fg: 'red' });
+        ui.text(`- Error creating instance: "${error}"`, { fg: 'red' });
       }
 
-      ui.text('Exiting...');
+      ui.text('- Exiting...');
 
       process.exit();
     }
@@ -76,40 +77,66 @@ export class Instance {
 
   public async removeInstance(instance: Docker.Container) {
     ui.box('Cleanup');
-    ui.text('Stopping and removing instance...');
+    ui.text('- Stopping and removing instance...');
 
     await instance.stop();
     await instance.remove();
 
-    ui.text('Instance stopped and removed');
+    ui.text('- Instance stopped and removed');
   }
 
   public async runInstanceScript(
     instance: Docker.Container,
-    script: string,
-    scriptIndex: number,
-    totalScripts: number,
+    stepScript: string,
+    stepScriptIndex: number,
+    totalStepScripts: number,
   ) {
-    const sanitizedScript = script.replace(/\n/g, '; ');
+    const sanitizedScript = stepScript.replace(/\n/g, '; ');
 
-    if (scriptIndex > 1 && scriptIndex <= totalScripts) ui.divider();
+    if (stepScriptIndex > 1 && stepScriptIndex <= totalStepScripts) {
+      ui.divider({
+        fg: 'grey',
+      });
+    }
 
-    ui.text(`(${scriptIndex}/${totalScripts}) Running Script: "${sanitizedScript}"`);
+    ui.text(`(${stepScriptIndex}/${totalStepScripts}) Running Script: "${sanitizedScript}"`, {
+      bold: true,
+    });
 
     const exec = await instance.exec({
-      Cmd: ['bash', '-c', script],
+      Cmd: ['bash', '-c', stepScript],
       AttachStdout: true,
       AttachStderr: true,
       Tty: false,
     });
 
-    const stream = await exec.start({ hijack: true, stdin: false });
+    const stream = await exec.start({
+      hijack: true,
+      stdin: false,
+    });
+
+    const stdoutBuffer: Buffer[] = [];
+    const stderrBuffer: Buffer[] = [];
+
+    const stdoutStream = new Writable({
+      write(chunk, _encoding, callback) {
+        stdoutBuffer.push(chunk);
+        callback();
+      },
+    });
+
+    const stderrStream = new Writable({
+      write(chunk, _encoding, callback) {
+        stderrBuffer.push(chunk);
+        callback();
+      },
+    });
 
     return new Promise<void>((resolve) => {
-      this.docker.modem.demuxStream(stream, process.stdout, process.stderr);
+      this.docker.modem.demuxStream(stream, stdoutStream, stderrStream);
 
       stream.on('error', async (err) => {
-        ui.text(`Script failed with error: "${err.message}"`, { fg: 'red' });
+        ui.text(`-> Script failed with error: "${err.message}"`, { fg: 'red' });
 
         await this.removeInstance(instance);
 
@@ -117,16 +144,32 @@ export class Instance {
       });
 
       stream.on('end', async () => {
+        const stdout = Buffer.concat(stdoutBuffer).toString('utf-8').trim();
+        const stderr = Buffer.concat(stderrBuffer).toString('utf-8').trim();
+
+        if (!!stdout || !!stderr) {
+          const combinedOutput = [stdout, stderr].filter(Boolean).join('\n\n');
+          const isOnlyStderr = !stdout && !!stderr;
+
+          ui.output(combinedOutput, {
+            fg: isOnlyStderr ? 'red' : 'magentaBright',
+          });
+        }
+
+        if (!stdout && !stderr) {
+          ui.output('No output from script', { fg: 'grey' });
+        }
+
         const result = await exec.inspect();
 
         if (result.ExitCode !== 0) {
-          ui.text(`Script failed with code "${result.ExitCode}"`, { fg: 'red' });
+          ui.text(`-> Script failed with code "${result.ExitCode}"`, { fg: 'red' });
 
           await this.removeInstance(instance);
 
           process.exit();
         } else {
-          ui.text('Script executed successfully', { fg: 'green' });
+          ui.text('-> Script executed successfully', { fg: 'green' });
 
           resolve();
         }
