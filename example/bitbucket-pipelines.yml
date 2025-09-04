@@ -4,25 +4,25 @@ definitions:
   scripts:
     - script: &scalar |-
         ls -la
-        TEST='FOO'
+        export TEST='FOO'
         echo $TEST
         printenv
 
   steps:
     - step: &install
-        name: 'Install Dependencies'
+        name: "Install Dependencies"
         script:
           - npm ci
           - ls -la
           - npm run start
 
     - step: &export
-        name: 'Export Test'
+        name: "Variables/Scalar Test"
         script:
           - *scalar
 
     - step: &artifact
-        name: 'Export Artifact'
+        name: "Export Artifact"
         script:
           - echo "Exporting artifact"
           - mkdir -p artifacts
@@ -31,7 +31,7 @@ definitions:
           - artifacts/**
 
     - step: &artifact-consumer
-        name: 'Consume Artifact'
+        name: "Consume Artifact"
         script:
           - echo "Consuming artifact"
           - ls -la artifacts
@@ -39,7 +39,7 @@ definitions:
 
 pipelines:
   tags:
-    '*.*.*':
+    "*.*.*":
       - step: *install
       - step: *export
 
