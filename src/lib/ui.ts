@@ -1,5 +1,7 @@
 import chalk from 'chalk';
 
+const PADDING = ' '.repeat(32);
+
 const icons = {
   TOP_LEFT_CORNER: '╭',
   TOP_RIGHT_CORNER: '╮',
@@ -29,13 +31,15 @@ const styles = (line: string, options?: OutputOptions) => {
 };
 
 export const box = (text: string, options?: OutputOptions) => {
-  const length = (process.stdout.columns || 80) - 2;
+  const length = (process.stdout.columns || 80) - 2 - PADDING.length * 2;
 
   const top = `${icons.TOP_LEFT_CORNER}${icons.HORIZONTAL_LINE.repeat(length)}${icons.TOP_RIGHT_CORNER}`;
   const middle = `${icons.VERTICAL_LINE} ${text.padEnd(length - 2, ' ')} ${icons.VERTICAL_LINE}`;
   const bottom = `${icons.BOTTOM_LEFT_CORNER}${icons.HORIZONTAL_LINE.repeat(length)}${icons.BOTTOM_RIGHT_CORNER}`;
 
-  [top, middle, bottom].forEach((line) => process.stdout.write(styles(line, options) + '\n'));
+  [top, middle, bottom].forEach((line) =>
+    process.stdout.write(PADDING + styles(line, options) + '\n'),
+  );
 };
 
 export const output = (text: string, options?: OutputOptions) => {
@@ -47,21 +51,21 @@ export const output = (text: string, options?: OutputOptions) => {
   const top = `${icons.TOP_LEFT_CORNER}${icons.HORIZONTAL_LINE}${icons.DOT}`;
   const bottom = `${icons.BOTTOM_LEFT_CORNER}${icons.HORIZONTAL_LINE}${icons.DOT}`;
 
-  process.stdout.write(styles(top, options) + '\n');
+  process.stdout.write(PADDING + styles(top, options) + '\n');
 
   lines.forEach((line) => {
     const middle = `${icons.VERTICAL_LINE} ${line.padEnd(length, ' ')}`;
-    process.stdout.write(styles(middle, options) + '\n');
+    process.stdout.write(PADDING + styles(middle, options) + '\n');
   });
 
-  process.stdout.write(styles(bottom, options) + '\n');
+  process.stdout.write(PADDING + styles(bottom, options) + '\n');
 };
 
 export const text = (text: string, options?: OutputOptions) => {
-  process.stdout.write(styles(text, options) + '\n');
+  text.split('\n').forEach((line) => process.stdout.write(PADDING + styles(line, options) + '\n'));
 };
 
 export const divider = (options?: OutputOptions) => {
-  const length = process.stdout.columns || 80;
-  process.stdout.write(styles(icons.HORIZONTAL_LINE.repeat(length), options) + '\n');
+  const length = (process.stdout.columns || 80) - PADDING.length * 2;
+  process.stdout.write(PADDING + styles(icons.HORIZONTAL_LINE.repeat(length), options) + '\n');
 };
