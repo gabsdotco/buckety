@@ -41,7 +41,9 @@ export class Runner {
 
     const defaultImage = this.configuration.getDefaultImage();
 
-    if (!step.image) ui.text(`No image found for this step, using default: "${defaultImage}"`);
+    if (!step.image) {
+      ui.text(`- No image found for this step, using default: "${defaultImage}"`);
+    }
 
     const image = step.image || defaultImage;
     const variables = this.environment.getContainerFormatVariables();
@@ -50,11 +52,16 @@ export class Runner {
 
     await stepInstance.start();
 
-    ui.text('Container started');
+    ui.text('- Container started');
     ui.box('Scripts');
 
-    for (const [index, script] of step.script.entries()) {
-      await this.instance.runInstanceScript(stepInstance, script, index + 1, step.script.length);
+    for (const [stepScriptIndex, stepScript] of step.script.entries()) {
+      await this.instance.runInstanceScript(
+        stepInstance,
+        stepScript,
+        stepScriptIndex + 1,
+        step.script.length,
+      );
     }
 
     await this.instance.removeInstance(stepInstance);

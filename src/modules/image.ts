@@ -15,16 +15,16 @@ export class Image {
   }
 
   public async pullImage(name: string) {
-    ui.text(`Checking if image "${name}" is available`);
+    ui.text(`- Checking if image "${name}" is available`);
 
     const isImageAvailable = await this.isImageAvailable(name);
 
     if (isImageAvailable) {
-      ui.text('Image already exists, skipping pull');
+      ui.text('- Image already exists, skipping pull');
       return;
     }
 
-    ui.text('Image not found, pulling it from the registry...');
+    ui.text('- Image not found, pulling it from the registry...');
 
     try {
       const stream = await this.docker.pull(name, {});
@@ -32,25 +32,25 @@ export class Image {
       await new Promise<void>((resolve) => {
         this.docker.modem.followProgress(stream, (error) => {
           if (error) {
-            ui.text(`Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
-            ui.text('Exiting...');
+            ui.text(`- Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
+            ui.text('- Exiting...');
 
             process.exit();
           }
 
-          ui.text('Image pulled successfully');
+          ui.text('- Image pulled successfully');
 
           resolve();
         });
       });
     } catch (error) {
       if (error instanceof Error) {
-        ui.text(`Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
+        ui.text(`- Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
       } else {
-        ui.text(`Error pulling image: "${error}"`, { fg: 'red' });
+        ui.text(`- Error pulling image: "${error}"`, { fg: 'red' });
       }
 
-      ui.text('Exiting...');
+      ui.text('- Exiting...');
 
       process.exit();
     }
