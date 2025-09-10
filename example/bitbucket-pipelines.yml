@@ -10,7 +10,7 @@ definitions:
 
   steps:
     - step: &install-dependencies
-        name: "Test - Install Dependencies"
+        name: "Test - Install NPM Dependencies"
         script:
           - npm ci
           - ls -la
@@ -21,37 +21,32 @@ definitions:
         script:
           - *scalar
 
-    - step: &artifact-export
+    - step: &create-artifact
         name: "Test - Create Artifact"
         script:
-          - echo "Exporting artifact"
-          - mkdir -p files
-          - echo "This is a test artifact" > files/test.txt
-          - echo "Another file" > files/another.txt
+          - mkdir -p artifacts
+          - echo "This is an artifact - version 1" > artifacts/artifact.txt
+          - echo "This is another artifact - version 1" > artifacts/another.txt
         artifacts:
-          - files/**
+          - artifacts/**
 
-    - step: &artifact-consume-and-export
-        name: "Test - Consume & Update Artifacts"
+    - step: &print-and-update-artifact
+        name: "Test - Print Artifact and Update"
         script:
-          - echo "Consuming artifact"
-          - ls -la files
-          - cat files/test.txt
-          - cat files/another.txt
-          - echo "Modifying artifact"
-          - echo "Added another line" >> files/another.txt
-          - echo "New file created" > files/newfile.txt
+          - ls -la artifacts
+          - cat artifacts/artifact.txt
+          - cat artifacts/another.txt
+          - echo "This is an artifact - version 2" > artifacts/artifact.txt
+          - echo "This is another artifact - version 2" > artifacts/another.txt
         artifacts:
-          - files/**
+          - artifacts/**
 
-    - step: &artifact-consumer-only
-        name: "Test - Consume Artifacts Only"
+    - step: &print-artifact-only
+        name: "Test - Print Artifact Only"
         script:
-          - echo "Consuming artifact only"
-          - ls -la files
-          - cat files/test.txt
-          - cat files/another.txt
-          - cat files/newfile.txt
+          - ls -la artifacts
+          - cat artifacts/artifact.txt
+          - cat artifacts/another.txt
 
 pipelines:
   tags:
@@ -62,9 +57,9 @@ pipelines:
   default:
     - step: *install-dependencies
     - step: *variables-and-scalar
-    - step: *artifact-export
-    - step: *artifact-consume-and-export
-    - step: *artifact-consumer-only
+    - step: *create-artifact
+    - step: *print-and-update-artifact
+    - step: *print-artifact-only
 
   branches:
     develop:
