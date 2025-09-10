@@ -38,7 +38,7 @@ export class Instance {
 
       if (variables.length) {
         ui.text(`- Initializing instance with variables:`);
-        variables.map((variable) => ui.text(`- ${variable}`));
+        variables.map((variable) => ui.text(`  - ${variable}`));
       }
 
       const instance = await this.docker.createContainer({
