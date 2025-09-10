@@ -9,48 +9,65 @@ definitions:
         printenv
 
   steps:
-    - step: &install
-        name: "Install Dependencies"
+    - step: &install-dependencies
+        name: "Test - Install Dependencies"
         script:
           - npm ci
           - ls -la
           - npm run start
 
-    - step: &export
-        name: "Variables/Scalar Test"
+    - step: &variables-and-scalar
+        name: "Test - Variables/Scalar"
         script:
           - *scalar
 
-    - step: &artifact
-        name: "Export Artifact"
+    - step: &artifact-export
+        name: "Test - Create Artifact"
         script:
           - echo "Exporting artifact"
-          - mkdir -p artifacts
-          - echo "This is a test artifact" > artifacts/test.txt
+          - mkdir -p files
+          - echo "This is a test artifact" > files/test.txt
+          - echo "Another file" > files/another.txt
         artifacts:
-          - artifacts/**
+          - files/**
 
-    - step: &artifact-consumer
-        name: "Consume Artifact"
+    - step: &artifact-consume-and-export
+        name: "Test - Consume & Update Artifacts"
         script:
           - echo "Consuming artifact"
-          - ls -la artifacts
-          - cat artifacts/test.txt
+          - ls -la files
+          - cat files/test.txt
+          - cat files/another.txt
+          - echo "Modifying artifact"
+          - echo "Added another line" >> files/another.txt
+          - echo "New file created" > files/newfile.txt
+        artifacts:
+          - files/**
+
+    - step: &artifact-consumer-only
+        name: "Test - Consume Artifacts Only"
+        script:
+          - echo "Consuming artifact only"
+          - ls -la files
+          - cat files/test.txt
+          - cat files/another.txt
+          - cat files/newfile.txt
 
 pipelines:
   tags:
     "*.*.*":
-      - step: *install
-      - step: *export
+      - step: *install-dependencies
+      - step: *variables-and-scalar
 
   default:
-    - step: *install
-    - step: *export
-    - step: *artifact
-    - step: *artifact-consumer
+    - step: *install-dependencies
+    - step: *variables-and-scalar
+    - step: *artifact-export
+    - step: *artifact-consume-and-export
+    - step: *artifact-consumer-only
 
   branches:
     develop:
-      - step: *install
+      - step: *install-dependencies
     master:
-      - step: *install
+      - step: *install-dependencies
