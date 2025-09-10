@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 
-const PADDING = ' '.repeat(32);
+const PADDING = ' '.repeat(16);
 
 const icons = {
   TOP_LEFT_CORNER: '╭',

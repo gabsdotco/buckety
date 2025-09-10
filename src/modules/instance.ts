@@ -1,12 +1,12 @@
+import tar from 'tar-fs';
+import path from 'path';
 import Docker from 'dockerode';
+
 import { Writable } from 'stream';
 
-import path from 'path';
-import tar from 'tar-fs';
+import * as ui from '@/lib/ui.js';
 
-import * as ui from '@/lib/ui';
-
-import { Image } from './image';
+import { Image } from './image.js';
 
 export class Instance {
   private image: Image;

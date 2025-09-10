@@ -1,6 +1,6 @@
 import Docker from 'dockerode';
 
-import * as ui from '@/lib/ui';
+import * as ui from '@/lib/ui.js';
 
 export class Image {
   private docker: Docker;

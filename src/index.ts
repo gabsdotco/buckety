@@ -1,15 +1,13 @@
 import { Command } from 'commander';
 
-import { version } from '../package.json';
-
-import { setupRunCommand } from './commands';
+import { setupRunCommand } from './commands/index.js';
 
 const program = new Command();
 
 program
   .name('buckety')
   .description('A simple CLI for running Bitbucket Pipelines locally')
-  .version(version);
+  .version('1.0.0');
 
 setupRunCommand(program);
 

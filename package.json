@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "A simple CLI for running Bitbucket Pipelines locally",
   "main": "./dist/index.js",
+  "type": "module",
   "keywords": [
     "bitbucket",
     "pipelines",
@@ -11,14 +12,14 @@
   "author": "gabsdotco",
   "license": "ISC",
   "bin": {
-    "buckety": "./bin/run"
+    "buckety": "./bin/cli"
   },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "ts-node ./bin/run",
-    "start:node": "node ./bin/run",
+    "start": "ts-node ./bin/cli",
+    "start:node": "node ./bin/cli",
     "build": "tsc && tsc-alias",
     "build:watch": "tsc -w"
   },

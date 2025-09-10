@@ -1,6 +1,6 @@
-import type { Definitions } from './definitions';
-import type { Pipelines } from './pipeline';
-import type { Image } from './image';
+import type { Definitions } from './definitions.js';
+import type { Pipelines } from './pipeline.js';
+import type { Image } from './image.js';
 
 export interface Template {
   options?: any;

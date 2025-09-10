@@ -2,9 +2,9 @@ import fs from 'node:fs';
 
 import * as env from 'dotenv';
 
-import * as ui from '@/lib/ui';
+import * as ui from '@/lib/ui.js';
 
-import { FILE_PATH_REGEX, VARIABLES_LIST_REGEX } from '@/lib/regex';
+import { FILE_PATH_REGEX, VARIABLES_LIST_REGEX } from '@/lib/regex.js';
 
 type EnvironmentOptions = {
   variables: string;

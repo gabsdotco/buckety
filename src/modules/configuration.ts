@@ -1,10 +1,11 @@
 import fs from 'fs';
-import get from 'lodash/get';
 import yaml from 'js-yaml';
 
-import * as ui from '@/lib/ui';
+import lodash from 'lodash';
 
-import type { Template, Pipeline } from '@/types';
+import * as ui from '@/lib/ui.js';
+
+import type { Template, Pipeline } from '@/types/index.js';
 
 const DEFAULT_BITBUCKET_IMAGE = 'atlassian/default-image:4';
 
@@ -49,7 +50,7 @@ export class Configuration {
 
   public getPipelineByName(name: string) {
     const pipelinePath = name.replace(':', '.');
-    const pipelineConfig = get(this.configuration.pipelines, pipelinePath) as Pipeline;
+    const pipelineConfig = lodash.get(this.configuration.pipelines, pipelinePath) as Pipeline;
 
     if (!pipelineConfig) {
       ui.text(`Pipeline "${name}" does not exist`, { fg: 'red' });

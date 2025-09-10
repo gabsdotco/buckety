@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 
-import { Runner } from '@/modules/runner';
-import { Environment } from '@/modules/environment';
-import { Configuration } from '@/modules/configuration';
+import { Runner } from '@/modules/runner.js';
+import { Environment } from '@/modules/environment.js';
+import { Configuration } from '@/modules/configuration.js';
 
 const DEFAULT_PIPELINE_NAME = 'default';
 const DEFAULT_TEMPLATE_PATH = './bitbucket-pipelines.yml';
