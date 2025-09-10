@@ -1,10 +1,11 @@
-import type { Step } from '@/types';
+import type { Step } from '@/types/step.js';
 
-import * as ui from '@/lib/ui';
+import * as ui from '@/lib/ui.js';
 
-import { Instance } from './instance';
-import { Environment } from './environment';
-import { Configuration } from './configuration';
+import { Instance } from './instance.js';
+import { Artifacts } from './artifacts.js';
+import { Environment } from './environment.js';
+import { Configuration } from './configuration.js';
 
 type RunnerOptions = {
   name: string;
@@ -16,6 +17,7 @@ export class Runner {
   private name: string;
 
   private instance: Instance;
+  private artifacts: Artifacts;
   private environment: Environment;
   private configuration: Configuration;
 
@@ -25,6 +27,7 @@ export class Runner {
     this.configuration = options.configuration;
 
     this.instance = new Instance();
+    this.artifacts = new Artifacts();
   }
 
   private async runPipelineStep(step: Step) {
@@ -46,6 +49,8 @@ export class Runner {
     }
 
     const image = step.image || defaultImage;
+    const artifacts = step.artifacts || [];
+
     const variables = this.environment.getContainerFormatVariables();
 
     const stepInstance = await this.instance.createInstance(image, variables);
@@ -53,6 +58,9 @@ export class Runner {
     await stepInstance.start();
 
     ui.text('- Container started');
+
+    await this.artifacts.uploadArtifacts(stepInstance);
+
     ui.box('Scripts');
 
     for (const [stepScriptIndex, stepScript] of step.script.entries()) {
@@ -64,6 +72,7 @@ export class Runner {
       );
     }
 
+    await this.artifacts.generateArtifacts(stepInstance, artifacts);
     await this.instance.removeInstance(stepInstance);
   }
 
