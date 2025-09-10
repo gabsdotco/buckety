@@ -18,15 +18,15 @@ export class Instance {
   }
 
   public async checkAvailability() {
-    ui.text('Checking Docker availability...');
+    ui.text('- Checking Docker availability...');
 
     try {
       await this.docker.ping();
 
-      ui.text('Docker is available');
+      ui.text('- Docker is available and running');
     } catch {
-      ui.text('Docker is not running, or you do not have permission to access it', { fg: 'red' });
-      ui.text('Exiting...');
+      ui.text('- Docker is not available or not running', { fg: 'red' });
+      ui.text('- Exiting from the application...');
 
       process.exit();
     }

@@ -83,12 +83,12 @@ export class Runner {
 
     await this.instance.checkAvailability();
 
-    ui.text('Starting steps...');
+    ui.text('- Starting pipeline steps...');
 
     for (const { step } of pipeline) {
       if (!step) {
-        ui.text('No step found');
-        ui.text('Exiting...');
+        ui.text('- No step found in the pipeline', { fg: 'red' });
+        ui.text('- Exiting from the application...');
 
         process.exit();
       }
