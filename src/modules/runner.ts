@@ -79,7 +79,7 @@ export class Runner {
   public async runPipelineSteps() {
     const pipeline = this.configuration.getPipelineByName(this.name);
 
-    ui.text(`[Starting Pipeline: "${this.name}"]`, { bold: true });
+    ui.text(`[Running Pipeline: "${this.name}"]`, { bold: true });
 
     await this.instance.checkAvailability();
 
