@@ -1,0 +1,68 @@
+image: node:16
+
+definitions:
+  scripts:
+    - script: &scalar |-
+        ls -la
+        export TEST='FOO'
+        echo $TEST
+        printenv
+
+  steps:
+    - step: &install-dependencies
+        name: "Test - Install NPM Dependencies"
+        script:
+          - npm ci
+          - ls -la
+          - npm run start
+
+    - step: &variables-and-scalar
+        name: "Test - Variables/Scalar"
+        script:
+          - *scalar
+
+    - step: &create-artifact
+        name: "Test - Create Artifact"
+        script:
+          - mkdir -p artifacts
+          - echo "This is an artifact - version 1" > artifacts/artifact.txt
+          - echo "This is another artifact - version 1" > artifacts/another.txt
+        artifacts:
+          - artifacts/**
+
+    - step: &print-and-update-artifact
+        name: "Test - Print Artifact and Update"
+        script:
+          - ls -la artifacts
+          - cat artifacts/artifact.txt
+          - cat artifacts/another.txt
+          - echo "This is an artifact - version 2" > artifacts/artifact.txt
+          - echo "This is another artifact - version 2" > artifacts/another.txt
+        artifacts:
+          - artifacts/**
+
+    - step: &print-artifact-only
+        name: "Test - Print Artifact Only"
+        script:
+          - ls -la artifacts
+          - cat artifacts/artifact.txt
+          - cat artifacts/another.txt
+
+pipelines:
+  tags:
+    "*.*.*":
+      - step: *install-dependencies
+      - step: *variables-and-scalar
+
+  default:
+    - step: *install-dependencies
+    - step: *variables-and-scalar
+    - step: *create-artifact
+    - step: *print-and-update-artifact
+    - step: *print-artifact-only
+
+  branches:
+    develop:
+      - step: *install-dependencies
+    master:
+      - step: *install-dependencies

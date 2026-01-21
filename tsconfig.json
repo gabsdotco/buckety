@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "outDir": "dist/",
+    "baseUrl": ".",
+    "rootDir": "./src",
+    "strict": true,
+    "target": "es2020",
+    "module": "nodenext",
+    "esModuleInterop": true,
+    "moduleResolution": "nodenext",
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}
