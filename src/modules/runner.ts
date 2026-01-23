@@ -39,7 +39,7 @@ export class Runner {
   private setupCommandListener() {
     const handleCommand = async (event: CommandEvent) => {
       if (this.isRunning) {
-        emitPipelineEvent('info', 'Pipeline is already running');
+        emitPipelineEvent({ type: 'info', message: 'Pipeline is already running' });
         return;
       }
 
@@ -76,18 +76,21 @@ export class Runner {
     const stepConfig = pipeline.find(({ step }) => step?.name === stepName);
 
     if (!stepConfig?.step) {
-      emitPipelineEvent('error', `Step "${stepName}" not found`);
+      emitPipelineEvent({
+        type: 'error',
+        error: new Error(`Step "${stepName}" not found`),
+      });
       return;
     }
 
     // Emit pipeline start for UI reset
     const stepNames = this.configuration.getPipelineStepNames(this.name);
-    emitPipelineEvent('pipeline:start', `Re-running step: ${stepName}`);
-    emitPipelineEvent('pipeline:steps', undefined, { steps: stepNames });
+    emitPipelineEvent({ type: 'pipeline:start' });
+    emitPipelineEvent({ type: 'pipeline:steps', data: { steps: stepNames } });
 
     try {
       await this.runPipelineStep(stepConfig.step);
-      emitPipelineEvent('pipeline:complete', 'Step completed successfully');
+      emitPipelineEvent({ type: 'pipeline:complete' });
     } catch {
       // Error is emitted through events
     }
@@ -95,14 +98,15 @@ export class Runner {
 
   private async runPipelineStep(step: Step) {
     const stepName = step.name || 'Unknown';
-    emitPipelineEvent('step:start', `Running step: ${stepName}`, { stepName });
+    emitPipelineEvent({ type: 'step:start', data: { stepName } });
 
     if (!step.script.length) {
-      emitPipelineEvent('step:error', 'Step script is empty', { stepName });
-      throw new Error(`Step "${stepName}" has no scripts to run`);
+      const error = new Error(`Step "${stepName}" has no scripts to run`);
+      emitPipelineEvent({ type: 'step:error', data: { stepName }, error });
+      throw error;
     }
 
-    emitPipelineEvent('info', 'Setting up step...');
+    emitPipelineEvent({ type: 'info', message: 'Setting up step...' });
 
     // Check Docker availability on first step (part of setup)
     if (!this.dockerChecked) {
@@ -113,7 +117,10 @@ export class Runner {
     const defaultImage = this.configuration.getDefaultImage();
 
     if (!step.image) {
-      emitPipelineEvent('info', `No image found for this step, using default: "${defaultImage}"`);
+      emitPipelineEvent({
+        type: 'info',
+        message: `No image found for this step, using default: "${defaultImage}"`,
+      });
     }
 
     const image = step.image || defaultImage;
@@ -125,11 +132,11 @@ export class Runner {
 
     await stepInstance.start();
 
-    emitPipelineEvent('instance:started', 'Container started');
+    emitPipelineEvent({ type: 'instance:started' });
 
     await this.artifacts.uploadArtifacts(stepInstance);
 
-    emitPipelineEvent('info', 'Running scripts...');
+    emitPipelineEvent({ type: 'info', message: 'Running scripts...' });
 
     for (const [stepScriptIndex, stepScript] of step.script.entries()) {
       await this.instance.runInstanceScript(
@@ -143,7 +150,7 @@ export class Runner {
     await this.artifacts.generateArtifacts(stepInstance, artifacts);
     await this.instance.removeInstance(stepInstance);
 
-    emitPipelineEvent('step:complete', `Step completed: ${stepName}`, { stepName });
+    emitPipelineEvent({ type: 'step:complete', data: { stepName } });
   }
 
   public async runPipelineSteps() {
@@ -153,19 +160,20 @@ export class Runner {
       const pipeline = this.configuration.getPipelineByName(this.name);
       const stepNames = this.configuration.getPipelineStepNames(this.name);
 
-      emitPipelineEvent('pipeline:start', `Running pipeline: ${this.name}`);
-      emitPipelineEvent('pipeline:steps', undefined, { steps: stepNames });
+      emitPipelineEvent({ type: 'pipeline:start' });
+      emitPipelineEvent({ type: 'pipeline:steps', data: { steps: stepNames } });
 
       for (const { step } of pipeline) {
         if (!step) {
-          emitPipelineEvent('error', 'No step found in the pipeline');
-          throw new Error('No step found in the pipeline');
+          const error = new Error('No step found in the pipeline');
+          emitPipelineEvent({ type: 'error', error });
+          throw error;
         }
 
         await this.runPipelineStep(step);
       }
 
-      emitPipelineEvent('pipeline:complete', 'Pipeline completed successfully');
+      emitPipelineEvent({ type: 'pipeline:complete' });
     } finally {
       this.isRunning = false;
     }

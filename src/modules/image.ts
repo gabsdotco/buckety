@@ -17,16 +17,16 @@ export class Image {
   }
 
   public async pullImage(name: string) {
-    emitPipelineEvent('info', `Checking if image "${name}" is available`);
+    emitPipelineEvent({ type: 'info', message: `Checking if image "${name}" is available` });
 
     const isImageAvailable = await this.isImageAvailable(name);
 
     if (isImageAvailable) {
-      emitPipelineEvent('image:pulled', `Image "${name}" already exists, skipping pull`);
+      emitPipelineEvent({ type: 'image:pulled', data: { image: name, cached: true } });
       return;
     }
 
-    emitPipelineEvent('image:pulling', `Pulling image "${name}" from registry...`);
+    emitPipelineEvent({ type: 'image:pulling', data: { image: name } });
 
     try {
       const stream = await this.docker.pull(name, {});
@@ -34,12 +34,13 @@ export class Image {
       await new Promise<void>((resolve, reject) => {
         this.docker.modem.followProgress(stream, (error) => {
           if (error) {
-            emitPipelineEvent('error', `Error pulling image: "${error.message.trim()}"`);
-            reject(error);
+            const err = new Error(`Error pulling image: "${error.message.trim()}"`);
+            emitPipelineEvent({ type: 'error', error: err });
+            reject(err);
             return;
           }
 
-          emitPipelineEvent('image:pulled', `Image "${name}" pulled successfully`);
+          emitPipelineEvent({ type: 'image:pulled', data: { image: name, cached: false } });
           resolve();
         });
       });

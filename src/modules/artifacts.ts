@@ -22,10 +22,13 @@ export class Artifacts {
   }
 
   public async generateArtifacts(instance: Docker.Container, artifacts: string[]) {
-    emitPipelineEvent('artifacts:generating', 'Processing artifacts...');
+    emitPipelineEvent({ type: 'artifacts:generating', data: { patterns: artifacts } });
 
     if (!artifacts.length) {
-      emitPipelineEvent('artifacts:generated', 'No artifacts defined for this step');
+      emitPipelineEvent({
+        type: 'artifacts:generated',
+        data: { count: 0, path: this.artifactsOutputPath },
+      });
       return;
     }
 
@@ -34,24 +37,36 @@ export class Artifacts {
   }
 
   public async uploadArtifacts(instance: Docker.Container) {
-    emitPipelineEvent('artifacts:uploading', 'Checking for artifacts to upload...');
+    emitPipelineEvent({ type: 'artifacts:uploading' });
 
     const artifactBundle = await this.createArtifactsBundle();
 
     if (!artifactBundle) {
-      emitPipelineEvent('artifacts:uploaded', 'No artifacts to upload');
+      emitPipelineEvent({
+        type: 'artifacts:uploaded',
+        data: { count: 0 },
+      });
       return;
     }
+
+    // Need to count files again? createArtifactsBundle returns pack stream.
+    // I should probably count files before packing in createArtifactsBundle.
+    // The previous implementation emitted "Uploading X artifact(s)" which implies counting inside createArtifactsBundle.
+    // I'll return count from createArtifactsBundle or refactor.
+    // For now I'll check createArtifactsBundle.
+
+    // createArtifactsBundle now returns `pack` but I can modify it to return { pack, count }
+    // Or I can modify createArtifactsBundle to emit the info event with count as it did.
 
     await this.uploadArtifactsBundle(instance, artifactBundle);
   }
 
   private async createArtifactsBundle() {
     if (!fs.existsSync(this.artifactsOutputPath)) {
-      emitPipelineEvent(
-        'info',
-        `No artifacts directory found at "${this.artifactsOutputPath}", skipping...`,
-      );
+      emitPipelineEvent({
+        type: 'info',
+        message: `No artifacts directory found at "${this.artifactsOutputPath}", skipping...`,
+      });
       return;
     }
 
@@ -61,30 +76,46 @@ export class Artifacts {
     });
 
     if (!artifactFiles.length) {
-      emitPipelineEvent('info', 'No artifacts found to upload, skipping...');
+      emitPipelineEvent({
+        type: 'info',
+        message: 'No artifacts found to upload, skipping...',
+      });
       return;
     }
 
-    emitPipelineEvent('info', `Uploading ${artifactFiles.length} artifact(s) to instance...`);
+    emitPipelineEvent({
+      type: 'info',
+      message: `Uploading ${artifactFiles.length} artifact(s) to instance...`,
+    });
 
+    // Pass count to uploadArtifacts by returning it?
+    // Typescript: createArtifactsBundle returns pack.
+    // I'll attach count to pack object? No, bad practice.
+    // I'll return an object or tuple.
     const pack = tar.pack(this.artifactsOutputPath);
 
-    return pack;
+    // Hack: I can't easily change the return type without changing the caller which I am doing.
+    // Let's modify createArtifactsBundle signature.
+    return { pack, count: artifactFiles.length };
   }
 
-  private async uploadArtifactsBundle(instance: Docker.Container, bundle: tar.Pack) {
+  private async uploadArtifactsBundle(
+    instance: Docker.Container,
+    bundleResult: { pack: tar.Pack; count: number },
+  ) {
     await new Promise((resolve, reject) => {
-      instance.putArchive(bundle, { path: CONTAINER_WORKDIR }, (err) => {
+      instance.putArchive(bundleResult.pack, { path: CONTAINER_WORKDIR }, (err) => {
         if (err) {
-          emitPipelineEvent('error', `Error uploading artifacts: "${err.message}"`);
-          reject(err);
+          const error = new Error(`Error uploading artifacts: "${err.message}"`);
+          emitPipelineEvent({ type: 'error', error });
+          reject(error);
           return;
         }
 
-        emitPipelineEvent(
-          'artifacts:uploaded',
-          `Artifacts uploaded to instance at "${CONTAINER_WORKDIR}" directory`,
-        );
+        emitPipelineEvent({
+          type: 'artifacts:uploaded',
+          data: { count: bundleResult.count, path: CONTAINER_WORKDIR },
+        });
         resolve(true);
       });
     });
@@ -93,24 +124,34 @@ export class Artifacts {
   private async extractInstanceArchives(instance: Docker.Container) {
     const instanceArchivesStream = await instance.getArchive({ path: CONTAINER_WORKDIR });
 
-    emitPipelineEvent('info', `Extracting instance archives to "${this.tempOutputPath}"`);
+    emitPipelineEvent({
+      type: 'info',
+      message: `Extracting instance archives to "${this.tempOutputPath}"`,
+    });
 
     await new Promise((resolve, reject) => {
       instanceArchivesStream
         .pipe(tar.extract(this.tempOutputPath))
         .on('finish', () => {
-          emitPipelineEvent('info', `Instance archives extracted to "${this.tempOutputPath}"`);
+          emitPipelineEvent({
+            type: 'info',
+            message: `Instance archives extracted to "${this.tempOutputPath}"`,
+          });
           resolve(true);
         })
         .on('error', (err) => {
-          emitPipelineEvent('error', `Error extracting instance archives: "${err.message}"`);
-          reject(err);
+          const error = new Error(`Error extracting instance archives: "${err.message}"`);
+          emitPipelineEvent({ type: 'error', error });
+          reject(error);
         });
     });
   }
 
   private async extractArtifactsFiles(artifacts: string[]) {
-    emitPipelineEvent('info', `Processing artifacts with patterns: ${artifacts.join(', ')}`);
+    emitPipelineEvent({
+      type: 'info',
+      message: `Processing artifacts with patterns: ${artifacts.join(', ')}`,
+    });
 
     const files = await globby(artifacts, {
       cwd: path.join(this.tempOutputPath, CONTAINER_WORKDIR),
@@ -118,13 +159,19 @@ export class Artifacts {
     });
 
     if (!files.length) {
-      emitPipelineEvent('info', 'No artifacts found for the given patterns');
+      emitPipelineEvent({
+        type: 'info',
+        message: 'No artifacts found for the given patterns',
+      });
       return;
     }
 
-    emitPipelineEvent('info', `Found ${files.length} artifact(s)`);
+    emitPipelineEvent({ type: 'info', message: `Found ${files.length} artifact(s)` });
 
-    emitPipelineEvent('info', `Copying artifacts to "${this.artifactsOutputPath}"`);
+    emitPipelineEvent({
+      type: 'info',
+      message: `Copying artifacts to "${this.artifactsOutputPath}"`,
+    });
 
     files.map((file) => {
       const sourcePath = path.join(this.tempOutputPath, CONTAINER_WORKDIR, file);
@@ -139,7 +186,10 @@ export class Artifacts {
       fs.copyFileSync(sourcePath, destinationPath);
     });
 
-    emitPipelineEvent('artifacts:generated', `Artifacts copied to "${this.artifactsOutputPath}"`);
+    emitPipelineEvent({
+      type: 'artifacts:generated',
+      data: { count: files.length, path: this.artifactsOutputPath },
+    });
 
     fs.rmSync(this.tempOutputPath, {
       recursive: true,

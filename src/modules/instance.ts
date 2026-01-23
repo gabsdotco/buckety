@@ -21,13 +21,13 @@ export class Instance {
   }
 
   public async checkAvailability() {
-    emitPipelineEvent('docker:checking', 'Checking Docker availability...');
+    emitPipelineEvent({ type: 'docker:checking' });
 
     try {
       await this.docker.ping();
-      emitPipelineEvent('docker:available', 'Docker is available and running');
-    } catch {
-      emitPipelineEvent('docker:unavailable', 'Docker is not available or not running');
+      emitPipelineEvent({ type: 'docker:available' });
+    } catch (error) {
+      emitPipelineEvent({ type: 'docker:unavailable', error });
       throw new Error('Docker is not available or not running');
     }
   }
@@ -37,10 +37,13 @@ export class Instance {
       await this.image.pullImage(image);
 
       if (variables.length) {
-        emitPipelineEvent('info', `Initializing instance with ${variables.length} variables`);
+        emitPipelineEvent({
+          type: 'info',
+          message: `Initializing instance with ${variables.length} variables`,
+        });
       }
 
-      emitPipelineEvent('instance:creating', `Creating container with image: ${image}`);
+      emitPipelineEvent({ type: 'instance:creating', data: { image } });
 
       // Add environment variables to force color output in CLI tools
       const colorEnvVars = [
@@ -58,9 +61,12 @@ export class Instance {
       });
 
       const shortId = `${instance.id.substring(0, 4)}..${instance.id.slice(-4)}`;
-      emitPipelineEvent('instance:created', shortId, { containerId: instance.id });
+      emitPipelineEvent({
+        type: 'instance:created',
+        data: { id: instance.id, shortId },
+      });
 
-      emitPipelineEvent('instance:copying', 'Copying current directory to instance');
+      emitPipelineEvent({ type: 'instance:copying' });
 
       // @TODO: make the path configurable through CLI options
       const workingDir = process.cwd();
@@ -70,7 +76,7 @@ export class Instance {
         path: CONTAINER_WORKDIR,
       });
 
-      emitPipelineEvent('instance:copied', 'Directory files copied to instance');
+      emitPipelineEvent({ type: 'instance:copied' });
 
       return instance;
     } catch (error) {
@@ -79,12 +85,12 @@ export class Instance {
   }
 
   public async removeInstance(instance: Docker.Container) {
-    emitPipelineEvent('instance:stopping', 'Stopping and removing instance...');
+    emitPipelineEvent({ type: 'instance:stopping' });
 
     await instance.stop();
     await instance.remove();
 
-    emitPipelineEvent('instance:stopped', 'Instance stopped and removed');
+    emitPipelineEvent({ type: 'instance:stopped' });
   }
 
   public async runInstanceScript(
@@ -95,11 +101,15 @@ export class Instance {
   ) {
     const sanitizedScript = stepScript.replace(/\n/g, '; ');
 
-    emitPipelineEvent(
-      'script:start',
-      `(${stepScriptIndex}/${totalStepScripts}) ${sanitizedScript}`,
-      { script: stepScript, index: stepScriptIndex, total: totalStepScripts },
-    );
+    emitPipelineEvent({
+      type: 'script:start',
+      data: {
+        script: stepScript,
+        index: stepScriptIndex,
+        total: totalStepScripts,
+        sanitizedScript,
+      },
+    });
 
     const exec = await instance.exec({
       Cmd: ['bash', '-c', stepScript],
@@ -134,7 +144,10 @@ export class Instance {
           const cleanLine = cleanTerminalOutput(line);
           if (cleanLine) {
             hasOutput = true;
-            emitPipelineEvent('script:output', cleanLine, { stderr: false });
+            emitPipelineEvent({
+              type: 'script:output',
+              data: { text: cleanLine, stderr: false },
+            });
           }
         }
         callback();
@@ -146,7 +159,7 @@ export class Instance {
       stream.pipe(outputStream);
 
       stream.on('error', async (err: Error) => {
-        emitPipelineEvent('script:error', `Script failed with error: "${err.message}"`);
+        emitPipelineEvent({ type: 'script:error', error: err });
 
         await this.removeInstance(instance);
         reject(err);
@@ -157,23 +170,30 @@ export class Instance {
         if (lineBuffer) {
           const cleanLine = cleanTerminalOutput(lineBuffer);
           if (cleanLine) {
-            emitPipelineEvent('script:output', cleanLine, { stderr: false });
+            emitPipelineEvent({
+              type: 'script:output',
+              data: { text: cleanLine, stderr: false },
+            });
           }
         }
 
         if (!hasOutput) {
-          emitPipelineEvent('script:output', '(no output)');
+          emitPipelineEvent({
+            type: 'script:output',
+            data: { text: '(no output)', stderr: false },
+          });
         }
 
         const result = await exec.inspect();
 
         if (result.ExitCode !== 0) {
-          emitPipelineEvent('script:error', `Script failed with code "${result.ExitCode}"`);
+          const error = new Error(`Script failed with exit code ${result.ExitCode}`);
+          emitPipelineEvent({ type: 'script:error', error });
 
           await this.removeInstance(instance);
-          reject(new Error(`Script failed with exit code ${result.ExitCode}`));
+          reject(error);
         } else {
-          emitPipelineEvent('script:complete', 'Script executed successfully');
+          emitPipelineEvent({ type: 'script:complete' });
           resolve();
         }
       });

@@ -3,6 +3,7 @@
  */
 
 import { PipelineEvent } from '@/lib/events.js';
+import { getErrorMessage } from '@/lib/errors.js';
 import { PipelineState, OutputLine, ScriptPhase, ScriptOutput, StepState } from '../types.js';
 
 export interface ReducerState extends PipelineState {
@@ -138,7 +139,7 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
 
     case 'pipeline:steps':
       if (event.data?.steps) {
-        const stepNames = event.data.steps as string[];
+        const stepNames = event.data.steps;
         return {
           ...state,
           steps: stepNames.map((name) => ({
@@ -159,108 +160,104 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
 
     case 'pipeline:error': {
       let newState: ReducerState = { ...state, status: 'failed' };
-      if (event.message) {
-        newState = addOutput(newState, { text: `Error: ${event.message}`, type: 'error' });
+      if (event.error) {
+        newState = addOutput(newState, {
+          text: `Error: ${getErrorMessage(event.error)}`,
+          type: 'error',
+        });
       }
       return newState;
     }
 
-    case 'step:start':
-      if (event.data?.stepName) {
-        const stepName = event.data.stepName as string;
-        const existingIndex = state.steps.findIndex((s) => s.name === stepName);
+    case 'step:start': {
+      const stepName = event.data.stepName;
+      const existingIndex = state.steps.findIndex((s) => s.name === stepName);
 
-        let activeStepIndex: number;
-        let newSteps: StepState[];
+      let activeStepIndex: number;
+      let newSteps: StepState[];
 
-        if (existingIndex !== -1) {
-          activeStepIndex = existingIndex;
-          newSteps = state.steps.map((s, i) =>
-            i === existingIndex ? { ...s, status: 'running' as const, startTime: Date.now() } : s,
-          );
-        } else {
-          // Fallback
-          const newStep: StepState = {
-            name: stepName,
-            status: 'running',
-            output: [],
-            scripts: [],
-            startTime: Date.now(),
-          };
-          newSteps = [...state.steps, newStep];
-          activeStepIndex = newSteps.length - 1;
-        }
-
-        const selectedStepIndex = state.isUserSelected ? state.selectedStepIndex : activeStepIndex;
-
-        return {
-          ...state,
-          steps: newSteps,
-          activeStepIndex,
-          selectedStepIndex,
-        };
-      }
-      return state;
-
-    case 'step:complete':
-      if (event.data?.stepName) {
-        const stepName = event.data.stepName as string;
-        const completedIndex = state.steps.findIndex((s) => s.name === stepName);
-        const newSteps = state.steps.map((s) =>
-          s.name === stepName ? { ...s, status: 'success' as const, endTime: Date.now() } : s,
+      if (existingIndex !== -1) {
+        activeStepIndex = existingIndex;
+        newSteps = state.steps.map((s, i) =>
+          i === existingIndex ? { ...s, status: 'running' as const, startTime: Date.now() } : s,
         );
-
-        let newSelectedIndex = state.selectedStepIndex;
-        let isUserSelected = state.isUserSelected;
-
-        // Auto-focus next step if user was viewing the completed step
-        if (
-          completedIndex !== -1 &&
-          completedIndex === state.selectedStepIndex &&
-          completedIndex < state.steps.length - 1
-        ) {
-          newSelectedIndex = completedIndex + 1;
-          isUserSelected = false; // Reset to auto-follow
-        }
-
-        return {
-          ...state,
-          steps: newSteps,
-          selectedStepIndex: newSelectedIndex,
-          isUserSelected,
+      } else {
+        // Fallback
+        const newStep: StepState = {
+          name: stepName,
+          status: 'running',
+          output: [],
+          scripts: [],
+          startTime: Date.now(),
         };
+        newSteps = [...state.steps, newStep];
+        activeStepIndex = newSteps.length - 1;
       }
-      return state;
 
-    case 'step:error':
-      if (event.data?.stepName) {
-        const stepName = event.data.stepName as string;
-        let newState = {
-          ...state,
-          steps: state.steps.map((s) =>
-            s.name === stepName ? { ...s, status: 'failed' as const, endTime: Date.now() } : s,
-          ),
-        };
-        if (event.message) {
-          newState = addOutput(newState, { text: `Error: ${event.message}`, type: 'error' });
-        }
-        return newState;
-      }
-      return state;
+      const selectedStepIndex = state.isUserSelected ? state.selectedStepIndex : activeStepIndex;
 
-    case 'script:start':
-      if (event.message) {
-        // Update phase and start script
-        return startScript({ ...state, currentPhase: 'script' }, event.message, 'script');
+      return {
+        ...state,
+        steps: newSteps,
+        activeStepIndex,
+        selectedStepIndex,
+      };
+    }
+
+    case 'step:complete': {
+      const stepName = event.data.stepName;
+      const completedIndex = state.steps.findIndex((s) => s.name === stepName);
+      const newSteps = state.steps.map((s) =>
+        s.name === stepName ? { ...s, status: 'success' as const, endTime: Date.now() } : s,
+      );
+
+      let newSelectedIndex = state.selectedStepIndex;
+      let isUserSelected = state.isUserSelected;
+
+      // Auto-focus next step if user was viewing the completed step
+      if (
+        completedIndex !== -1 &&
+        completedIndex === state.selectedStepIndex &&
+        completedIndex < state.steps.length - 1
+      ) {
+        newSelectedIndex = completedIndex + 1;
+        isUserSelected = false; // Reset to auto-follow
       }
-      return state;
+
+      return {
+        ...state,
+        steps: newSteps,
+        selectedStepIndex: newSelectedIndex,
+        isUserSelected,
+      };
+    }
+
+    case 'step:error': {
+      const stepName = event.data.stepName;
+      let newState = {
+        ...state,
+        steps: state.steps.map((s) =>
+          s.name === stepName ? { ...s, status: 'failed' as const, endTime: Date.now() } : s,
+        ),
+      };
+      if (event.error) {
+        newState = addOutput(newState, {
+          text: `Error: ${getErrorMessage(event.error)}`,
+          type: 'error',
+        });
+      }
+      return newState;
+    }
+
+    case 'script:start': {
+      const { sanitizedScript } = event.data;
+      // Update phase and start script
+      return startScript({ ...state, currentPhase: 'script' }, sanitizedScript, 'script');
+    }
 
     case 'script:output': {
-      const isStderr = event.data?.stderr === true;
-      if (event.message) {
-        return addOutput(state, { text: event.message, type: isStderr ? 'stderr' : 'stdout' });
-      }
-      return state;
+      const { text, stderr } = event.data;
+      return addOutput(state, { text, type: stderr ? 'stderr' : 'stdout' });
     }
 
     case 'script:complete':
@@ -268,8 +265,11 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
 
     case 'script:error': {
       let newState = completeScript(state, false);
-      if (event.message) {
-        newState = addOutput(newState, { text: event.message, type: 'error' });
+      if (event.error) {
+        newState = addOutput(newState, {
+          text: getErrorMessage(event.error),
+          type: 'error',
+        });
       }
       // Fail current step and pipeline
       const { activeStepIndex } = newState;
@@ -303,6 +303,9 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
 
     case 'docker:unavailable': {
       let newState = addOutput(state, { text: 'Docker is not available', type: 'error' });
+      if (event.error) {
+        newState = addOutput(newState, { text: getErrorMessage(event.error), type: 'error' });
+      }
       newState = completeScript(newState, false);
       // Fail current step and pipeline
       const { activeStepIndex } = newState;
@@ -316,16 +319,19 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
     }
 
     case 'image:pulling':
-      if (event.message) {
-        return addOutput(state, { text: `Pulling image: ${event.message}`, type: 'info' });
-      }
-      return state;
+      return addOutput(state, { text: `Pulling image: ${event.data.image}`, type: 'info' });
 
     case 'image:pulled':
-      if (event.message) {
-        return addOutput(state, { text: `Image ready: ${event.message}`, type: 'success' });
+      if (event.data.cached) {
+        return addOutput(state, {
+          text: `Image "${event.data.image}" already exists, skipping pull`,
+          type: 'success',
+        });
       }
-      return state;
+      return addOutput(state, {
+        text: `Image "${event.data.image}" pulled successfully`,
+        type: 'success',
+      });
 
     case 'instance:creating': {
       let newState = state;
@@ -339,23 +345,24 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
           'setup',
         );
       }
-      if (event.message) {
-        newState = addOutput(newState, { text: event.message, type: 'info' });
-      }
+      newState = addOutput(newState, {
+        text: `Creating container with image: ${event.data.image}`,
+        type: 'info',
+      });
       return newState;
     }
 
     case 'instance:created':
-      if (event.message) {
-        return addOutput(state, { text: `Container created: ${event.message}`, type: 'info' });
-      }
-      return state;
+      return addOutput(state, {
+        text: `Container created: ${event.data.shortId}`,
+        type: 'info',
+      });
 
     case 'instance:copying':
-      if (event.message) {
-        return addOutput(state, { text: event.message, type: 'info' });
-      }
-      return state;
+      return addOutput(state, { text: 'Copying current directory to instance', type: 'info' });
+
+    case 'instance:copied':
+      return addOutput(state, { text: 'Directory files copied to instance', type: 'info' });
 
     case 'instance:started':
       return completeScript(addOutput(state, { text: 'Container started', type: 'success' }), true);
@@ -363,9 +370,7 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
     case 'instance:stopping': {
       let newState: ReducerState = { ...state, currentPhase: 'cleanup' };
       newState = startScript(newState, 'Cleaning up', 'cleanup');
-      if (event.message) {
-        newState = addOutput(newState, { text: event.message, type: 'info' });
-      }
+      newState = addOutput(newState, { text: 'Stopping and removing instance...', type: 'info' });
       return newState;
     }
 
@@ -374,52 +379,54 @@ function handlePipelineEvent(state: ReducerState, event: PipelineEvent): Reducer
 
     case 'artifacts:uploading': {
       let newState = startScript(state, 'Uploading artifacts', 'artifacts-upload');
-      if (event.message) {
-        newState = addOutput(newState, { text: event.message, type: 'info' });
-      }
+      newState = addOutput(newState, { text: 'Checking for artifacts to upload...', type: 'info' });
       return newState;
     }
 
     case 'artifacts:uploaded': {
       let newState = state;
-      if (event.message) {
-        newState = addOutput(newState, { text: event.message, type: 'success' });
+      const count = event.data.count ?? 0;
+      if (count > 0) {
+        newState = addOutput(newState, {
+          text: `Uploaded ${count} artifact(s)`,
+          type: 'success',
+        });
+      } else {
+        newState = addOutput(newState, { text: 'No artifacts to upload', type: 'info' });
       }
       return completeScript(newState, true);
     }
 
     case 'artifacts:generating': {
       let newState = startScript(state, 'Downloading artifacts', 'artifacts-download');
-      if (event.message) {
-        newState = addOutput(newState, { text: event.message, type: 'info' });
-      }
+      newState = addOutput(newState, { text: 'Processing artifacts...', type: 'info' });
       return newState;
     }
 
     case 'artifacts:generated': {
       let newState = state;
-      if (event.message) {
-        newState = addOutput(newState, { text: event.message, type: 'success' });
+      const count = event.data.count;
+      if (count > 0) {
+        newState = addOutput(newState, {
+          text: `Generated ${count} artifact(s)`,
+          type: 'success',
+        });
+      } else {
+        newState = addOutput(newState, { text: 'No artifacts generated', type: 'info' });
       }
       return completeScript(newState, true);
     }
 
     case 'info':
-      if (event.message) {
-        return addOutput(state, { text: event.message, type: 'info' });
-      }
-      return state;
+      return addOutput(state, { text: event.message, type: 'info' });
 
     case 'error':
-      if (event.message) {
-        return addOutput(state, { text: event.message, type: 'error' });
+      if (event.error) {
+        return addOutput(state, { text: getErrorMessage(event.error), type: 'error' });
       }
       return state;
 
     default:
-      if (event.message) {
-        return addOutput(state, { text: event.message, type: 'info' });
-      }
       return state;
   }
 }

@@ -27,7 +27,8 @@ describe('pipelineReducer', () => {
       type: 'EVENT',
       event: { type: 'pipeline:steps', data: { steps: ['step1', 'step2'] } },
     } as const;
-    const state = pipelineReducer(INITIAL_STATE, action);
+    // Cast strict action to any to bypass readonly array issues in test
+    const state = pipelineReducer(INITIAL_STATE, action as any);
     expect(state.steps).toHaveLength(2);
     expect(state.steps[0].name).toBe('step1');
     expect(state.steps[0].status).toBe('pending');
