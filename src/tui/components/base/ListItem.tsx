@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, BoxProps } from 'ink';
 
-interface ListItemProps {
+interface ListItemProps extends BoxProps {
   label: string;
   symbol?: string;
   isSelected?: boolean;
@@ -9,9 +9,23 @@ interface ListItemProps {
   dimColor?: boolean;
 }
 
-export function ListItem({ label, symbol, isSelected, color, dimColor }: ListItemProps) {
+export function ListItem({
+  label,
+  symbol,
+  isSelected,
+  color,
+  dimColor,
+  paddingX = 2,
+  paddingY = 1,
+  ...props
+}: ListItemProps) {
   return (
-    <Box paddingX={2} paddingY={1} backgroundColor={isSelected ? '#191919' : undefined}>
+    <Box
+      paddingX={paddingX}
+      paddingY={paddingY}
+      backgroundColor={isSelected ? '#191919' : undefined}
+      {...props}
+    >
       {symbol && (
         <Box marginRight={2}>
           <Text color={color} dimColor={dimColor}>
