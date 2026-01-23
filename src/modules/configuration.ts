@@ -3,8 +3,6 @@ import yaml from 'js-yaml';
 
 import lodash from 'lodash';
 
-import * as ui from '@/lib/ui.js';
-
 import type { Template, Pipeline } from '@/types/index.js';
 
 const DEFAULT_BITBUCKET_IMAGE = 'atlassian/default-image:4';
@@ -18,29 +16,17 @@ export class Configuration {
 
   constructor(options: ConfigurationOptions) {
     if (!fs.existsSync(options.path)) {
-      ui.text(`Template file "${options.path}" does not exist`, { fg: 'red' });
-      ui.text('Exiting...');
-
-      process.exit();
+      throw new Error(`Template file "${options.path}" does not exist`);
     }
 
     try {
       this.configuration = yaml.load(fs.readFileSync(options.path, 'utf8')) as Template;
     } catch (error) {
       if (error instanceof yaml.YAMLException) {
-        ui.text(`Template file "${options.path}" is not valid YAML: ${error.message}\n`, {
-          fg: 'red',
-        });
-
-        ui.text('Exiting...');
-
-        process.exit();
+        throw new Error(`Template file "${options.path}" is not valid YAML: ${error.message}`);
       }
 
-      ui.text(`Failed to load template file "${options.path}"`, { fg: 'red' });
-      ui.text('Exiting...');
-
-      process.exit();
+      throw new Error(`Failed to load template file "${options.path}"`);
     }
   }
 
@@ -53,12 +39,49 @@ export class Configuration {
     const pipelineConfig = lodash.get(this.configuration.pipelines, pipelinePath) as Pipeline;
 
     if (!pipelineConfig) {
-      ui.text(`Pipeline "${name}" does not exist`, { fg: 'red' });
-      ui.text('Exiting...');
-
-      process.exit();
+      throw new Error(`Pipeline "${name}" does not exist`);
     }
 
     return pipelineConfig;
+  }
+
+  public getPipelineStepNames(name: string): string[] {
+    const pipeline = this.getPipelineByName(name);
+    return pipeline.map(({ step }) => step?.name || 'Unknown').filter(Boolean);
+  }
+
+  public getAvailablePipelines(): string[] {
+    const pipelines: string[] = [];
+    const pipelinesConfig = this.configuration.pipelines;
+
+    if (pipelinesConfig.default) {
+      pipelines.push('default');
+    }
+
+    if (pipelinesConfig.branches) {
+      for (const branch of Object.keys(pipelinesConfig.branches)) {
+        pipelines.push(`branches:${branch}`);
+      }
+    }
+
+    if (pipelinesConfig.tags) {
+      for (const tag of Object.keys(pipelinesConfig.tags)) {
+        pipelines.push(`tags:${tag}`);
+      }
+    }
+
+    if (pipelinesConfig.custom) {
+      for (const custom of Object.keys(pipelinesConfig.custom)) {
+        pipelines.push(`custom:${custom}`);
+      }
+    }
+
+    if (pipelinesConfig['pull-requests']) {
+      for (const pr of Object.keys(pipelinesConfig['pull-requests'])) {
+        pipelines.push(`pull-requests:${pr}`);
+      }
+    }
+
+    return pipelines;
   }
 }

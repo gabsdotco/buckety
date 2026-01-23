@@ -5,15 +5,16 @@ import Docker from 'dockerode';
 
 import { globby } from 'globby';
 
-import * as ui from '@/lib/ui.js';
+import { emitPipelineEvent } from '@/lib/events.js';
+import { BUCKETY_DIR, TEMP_DIR, ARTIFACTS_DIR, CONTAINER_WORKDIR } from '@/lib/paths.js';
 
 export class Artifacts {
-  private tempOutputPath = path.join(`./.buckety/tmp`);
-  private artifactsOutputPath = path.join(`./.buckety/artifacts`);
+  private tempOutputPath = TEMP_DIR;
+  private artifactsOutputPath = ARTIFACTS_DIR;
 
   constructor() {
-    if (fs.existsSync(path.join('./.buckety'))) {
-      fs.rmSync(path.join('./.buckety'), {
+    if (fs.existsSync(BUCKETY_DIR)) {
+      fs.rmSync(BUCKETY_DIR, {
         recursive: true,
         force: true,
       });
@@ -21,10 +22,10 @@ export class Artifacts {
   }
 
   public async generateArtifacts(instance: Docker.Container, artifacts: string[]) {
-    ui.box('Artifacts (Store)');
+    emitPipelineEvent('artifacts:generating', 'Processing artifacts...');
 
     if (!artifacts.length) {
-      ui.text('- No artifacts defined for extraction in the step, skipping...');
+      emitPipelineEvent('artifacts:generated', 'No artifacts defined for this step');
       return;
     }
 
@@ -33,18 +34,24 @@ export class Artifacts {
   }
 
   public async uploadArtifacts(instance: Docker.Container) {
-    ui.box('Artifacts (Upload)');
+    emitPipelineEvent('artifacts:uploading', 'Checking for artifacts to upload...');
 
     const artifactBundle = await this.createArtifactsBundle();
 
-    if (!artifactBundle) return;
+    if (!artifactBundle) {
+      emitPipelineEvent('artifacts:uploaded', 'No artifacts to upload');
+      return;
+    }
 
     await this.uploadArtifactsBundle(instance, artifactBundle);
   }
 
   private async createArtifactsBundle() {
     if (!fs.existsSync(this.artifactsOutputPath)) {
-      ui.text('- No artifacts directory found at "./.buckety/artifacts", skipping...');
+      emitPipelineEvent(
+        'info',
+        `No artifacts directory found at "${this.artifactsOutputPath}", skipping...`,
+      );
       return;
     }
 
@@ -54,11 +61,11 @@ export class Artifacts {
     });
 
     if (!artifactFiles.length) {
-      ui.text('- No artifacts found to upload, skipping...');
+      emitPipelineEvent('info', 'No artifacts found to upload, skipping...');
       return;
     }
 
-    ui.text(`- Uploading ${artifactFiles.length} artifact(s) to instance...`);
+    emitPipelineEvent('info', `Uploading ${artifactFiles.length} artifact(s) to instance...`);
 
     const pack = tar.pack(this.artifactsOutputPath);
 
@@ -67,60 +74,60 @@ export class Artifacts {
 
   private async uploadArtifactsBundle(instance: Docker.Container, bundle: tar.Pack) {
     await new Promise((resolve, reject) => {
-      instance.putArchive(bundle, { path: '/runner' }, (err) => {
+      instance.putArchive(bundle, { path: CONTAINER_WORKDIR }, (err) => {
         if (err) {
-          ui.text(`- Error uploading artifacts: "${err.message}"`, { fg: 'red' });
+          emitPipelineEvent('error', `Error uploading artifacts: "${err.message}"`);
           reject(err);
-
           return;
         }
 
-        ui.text(`- Artifacts uploaded to instance at "/runner" directory`);
+        emitPipelineEvent(
+          'artifacts:uploaded',
+          `Artifacts uploaded to instance at "${CONTAINER_WORKDIR}" directory`,
+        );
         resolve(true);
       });
     });
   }
 
   private async extractInstanceArchives(instance: Docker.Container) {
-    const instanceArchivesStream = await instance.getArchive({ path: '/runner' });
+    const instanceArchivesStream = await instance.getArchive({ path: CONTAINER_WORKDIR });
 
-    ui.text(`- Extracting instance archives to "${this.tempOutputPath}"`);
+    emitPipelineEvent('info', `Extracting instance archives to "${this.tempOutputPath}"`);
 
     await new Promise((resolve, reject) => {
       instanceArchivesStream
         .pipe(tar.extract(this.tempOutputPath))
         .on('finish', () => {
-          ui.text(`- Instance archives extracted to "${this.tempOutputPath}"`);
+          emitPipelineEvent('info', `Instance archives extracted to "${this.tempOutputPath}"`);
           resolve(true);
         })
         .on('error', (err) => {
-          ui.text(`- Error extracting instance archives: "${err.message}"`, { fg: 'red' });
+          emitPipelineEvent('error', `Error extracting instance archives: "${err.message}"`);
           reject(err);
         });
     });
   }
 
   private async extractArtifactsFiles(artifacts: string[]) {
-    ui.text(`- Processing artifacts with patterns: ${artifacts.join(', ')}`);
+    emitPipelineEvent('info', `Processing artifacts with patterns: ${artifacts.join(', ')}`);
 
     const files = await globby(artifacts, {
-      cwd: this.tempOutputPath + '/runner',
+      cwd: path.join(this.tempOutputPath, CONTAINER_WORKDIR),
       dot: true,
     });
 
     if (!files.length) {
-      ui.text('- No artifacts found for the given patterns', { fg: 'yellow' });
+      emitPipelineEvent('info', 'No artifacts found for the given patterns');
       return;
     }
 
-    ui.text(`- Found ${files.length} artifact(s):`);
+    emitPipelineEvent('info', `Found ${files.length} artifact(s)`);
 
-    files.map((file) => ui.text(`  - ${file}`));
-
-    ui.text(`- Copying artifacts to "${this.artifactsOutputPath}"`);
+    emitPipelineEvent('info', `Copying artifacts to "${this.artifactsOutputPath}"`);
 
     files.map((file) => {
-      const sourcePath = path.join(this.tempOutputPath, '/runner', file);
+      const sourcePath = path.join(this.tempOutputPath, CONTAINER_WORKDIR, file);
 
       const destinationPath = path.join(this.artifactsOutputPath, file);
       const destinationDir = path.dirname(destinationPath);
@@ -132,7 +139,7 @@ export class Artifacts {
       fs.copyFileSync(sourcePath, destinationPath);
     });
 
-    ui.text(`- Artifacts copied to "${this.artifactsOutputPath}"`);
+    emitPipelineEvent('artifacts:generated', `Artifacts copied to "${this.artifactsOutputPath}"`);
 
     fs.rmSync(this.tempOutputPath, {
       recursive: true,

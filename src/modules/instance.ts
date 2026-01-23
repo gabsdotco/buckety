@@ -1,10 +1,13 @@
 import tar from 'tar-fs';
-import path from 'path';
 import Docker from 'dockerode';
 
 import { Writable } from 'stream';
 
-import * as ui from '@/lib/ui.js';
+import { emitPipelineEvent } from '@/lib/events.js';
+import { cleanTerminalOutput } from '@/lib/terminal.js';
+import { handleAndEmitError } from '@/lib/errors.js';
+import { docker } from '@/lib/docker.js';
+import { CONTAINER_WORKDIR } from '@/lib/paths.js';
 
 import { Image } from './image.js';
 
@@ -14,21 +17,18 @@ export class Instance {
 
   constructor() {
     this.image = new Image();
-    this.docker = new Docker();
+    this.docker = docker;
   }
 
   public async checkAvailability() {
-    ui.text('- Checking Docker availability...');
+    emitPipelineEvent('docker:checking', 'Checking Docker availability...');
 
     try {
       await this.docker.ping();
-
-      ui.text('- Docker is available and running');
+      emitPipelineEvent('docker:available', 'Docker is available and running');
     } catch {
-      ui.text('- Docker is not available or not running', { fg: 'red' });
-      ui.text('- Exiting from the application...');
-
-      process.exit();
+      emitPipelineEvent('docker:unavailable', 'Docker is not available or not running');
+      throw new Error('Docker is not available or not running');
     }
   }
 
@@ -37,52 +37,54 @@ export class Instance {
       await this.image.pullImage(image);
 
       if (variables.length) {
-        ui.text(`- Initializing instance with variables:`);
-        variables.map((variable) => ui.text(`  - ${variable}`));
+        emitPipelineEvent('info', `Initializing instance with ${variables.length} variables`);
       }
+
+      emitPipelineEvent('instance:creating', `Creating container with image: ${image}`);
+
+      // Add environment variables to force color output in CLI tools
+      const colorEnvVars = [
+        'TERM=xterm-256color', // Standard terminal with 256 color support
+        'FORCE_COLOR=1', // Force color for chalk/supports-color
+        'COLORTERM=truecolor', // Indicate true color support
+        'CI=true', // Some tools check this but still respect FORCE_COLOR
+      ];
 
       const instance = await this.docker.createContainer({
         Tty: true,
-        Env: variables,
+        Env: [...colorEnvVars, ...variables],
         Image: image,
-        WorkingDir: '/runner',
+        WorkingDir: CONTAINER_WORKDIR,
       });
 
-      ui.text(`- Created instance "${instance.id.substring(0, 4)}..${instance.id.slice(-4)}"`);
-      ui.text('- Copying current directory to instance');
+      const shortId = `${instance.id.substring(0, 4)}..${instance.id.slice(-4)}`;
+      emitPipelineEvent('instance:created', shortId, { containerId: instance.id });
+
+      emitPipelineEvent('instance:copying', 'Copying current directory to instance');
 
       // @TODO: make the path configurable through CLI options
-      const workingDir = path.join(process.cwd(), './example');
+      const workingDir = process.cwd();
       const workingDirTarStream = tar.pack(workingDir);
 
       await instance.putArchive(workingDirTarStream, {
-        path: '/runner',
+        path: CONTAINER_WORKDIR,
       });
 
-      ui.text('- Directory files copied to instance');
+      emitPipelineEvent('instance:copied', 'Directory files copied to instance');
 
       return instance;
     } catch (error) {
-      if (error instanceof Error) {
-        ui.text(`- Error creating instance: "${error.message.trim()}"`, { fg: 'red' });
-      } else {
-        ui.text(`- Error creating instance: "${error}"`, { fg: 'red' });
-      }
-
-      ui.text('- Exiting...');
-
-      process.exit();
+      handleAndEmitError('creating instance', error);
     }
   }
 
   public async removeInstance(instance: Docker.Container) {
-    ui.box('Cleanup');
-    ui.text('- Stopping and removing instance...');
+    emitPipelineEvent('instance:stopping', 'Stopping and removing instance...');
 
     await instance.stop();
     await instance.remove();
 
-    ui.text('- Instance stopped and removed');
+    emitPipelineEvent('instance:stopped', 'Instance stopped and removed');
   }
 
   public async runInstanceScript(
@@ -93,84 +95,85 @@ export class Instance {
   ) {
     const sanitizedScript = stepScript.replace(/\n/g, '; ');
 
-    if (stepScriptIndex > 1 && stepScriptIndex <= totalStepScripts) {
-      ui.divider({
-        fg: 'grey',
-      });
-    }
-
-    ui.text(`(${stepScriptIndex}/${totalStepScripts}) Running Script: "${sanitizedScript}"`, {
-      bold: true,
-    });
+    emitPipelineEvent(
+      'script:start',
+      `(${stepScriptIndex}/${totalStepScripts}) ${sanitizedScript}`,
+      { script: stepScript, index: stepScriptIndex, total: totalStepScripts },
+    );
 
     const exec = await instance.exec({
       Cmd: ['bash', '-c', stepScript],
       AttachStdout: true,
       AttachStderr: true,
-      Tty: false,
+      Tty: true,
     });
 
     const stream = await exec.start({
-      hijack: true,
-      stdin: false,
+      Detach: false,
+      Tty: true,
     });
 
-    const stdoutBuffer: Buffer[] = [];
-    const stderrBuffer: Buffer[] = [];
+    // Track if we've received any output
+    let hasOutput = false;
 
-    const stdoutStream = new Writable({
+    // Buffer for incomplete lines (chunks may split mid-line)
+    let lineBuffer = '';
+
+    const outputStream = new Writable({
       write(chunk, _encoding, callback) {
-        stdoutBuffer.push(chunk);
+        const text = chunk.toString('utf-8');
+        // Handle line buffering for partial lines
+        const combined = lineBuffer + text;
+        const lines = combined.split('\n');
+
+        // Last element might be incomplete, keep it in buffer
+        lineBuffer = lines.pop() || '';
+
+        // Emit complete lines
+        for (const line of lines) {
+          const cleanLine = cleanTerminalOutput(line);
+          if (cleanLine) {
+            hasOutput = true;
+            emitPipelineEvent('script:output', cleanLine, { stderr: false });
+          }
+        }
         callback();
       },
     });
 
-    const stderrStream = new Writable({
-      write(chunk, _encoding, callback) {
-        stderrBuffer.push(chunk);
-        callback();
-      },
-    });
+    return new Promise<void>((resolve, reject) => {
+      // With TTY mode, stream is already multiplexed, pipe directly
+      stream.pipe(outputStream);
 
-    return new Promise<void>((resolve) => {
-      this.docker.modem.demuxStream(stream, stdoutStream, stderrStream);
-
-      stream.on('error', async (err) => {
-        ui.text(`-> Script failed with error: "${err.message}"`, { fg: 'red' });
+      stream.on('error', async (err: Error) => {
+        emitPipelineEvent('script:error', `Script failed with error: "${err.message}"`);
 
         await this.removeInstance(instance);
-
-        process.exit();
+        reject(err);
       });
 
       stream.on('end', async () => {
-        const stdout = Buffer.concat(stdoutBuffer).toString('utf-8').trim();
-        const stderr = Buffer.concat(stderrBuffer).toString('utf-8').trim();
-
-        if (!!stdout || !!stderr) {
-          const combinedOutput = [stdout, stderr].filter(Boolean).join('\n\n');
-          const isOnlyStderr = !stdout && !!stderr;
-
-          ui.output(combinedOutput, {
-            fg: isOnlyStderr ? 'red' : 'magentaBright',
-          });
+        // Flush any remaining buffered content
+        if (lineBuffer) {
+          const cleanLine = cleanTerminalOutput(lineBuffer);
+          if (cleanLine) {
+            emitPipelineEvent('script:output', cleanLine, { stderr: false });
+          }
         }
 
-        if (!stdout && !stderr) {
-          ui.output('No output from script', { fg: 'grey' });
+        if (!hasOutput) {
+          emitPipelineEvent('script:output', '(no output)');
         }
 
         const result = await exec.inspect();
 
         if (result.ExitCode !== 0) {
-          ui.text(`-> Script failed with code "${result.ExitCode}"`, { fg: 'red' });
+          emitPipelineEvent('script:error', `Script failed with code "${result.ExitCode}"`);
 
           await this.removeInstance(instance);
-
-          process.exit();
+          reject(new Error(`Script failed with exit code ${result.ExitCode}`));
         } else {
-          ui.text('-> Script executed successfully', { fg: 'green' });
-
+          emitPipelineEvent('script:complete', 'Script executed successfully');
           resolve();
         }
       });

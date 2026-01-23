@@ -1,0 +1,7 @@
+[install]
+# Use exact versions for reproducibility
+exact = true
+
+[run]
+# Enable path alias resolution from tsconfig.json
+tsconfig = "./tsconfig.json"

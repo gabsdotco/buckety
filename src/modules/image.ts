@@ -1,12 +1,14 @@
 import Docker from 'dockerode';
 
-import * as ui from '@/lib/ui.js';
+import { emitPipelineEvent } from '@/lib/events.js';
+import { handleAndEmitError } from '@/lib/errors.js';
+import { docker } from '@/lib/docker.js';
 
 export class Image {
   private docker: Docker;
 
   constructor() {
-    this.docker = new Docker();
+    this.docker = docker;
   }
 
   private async isImageAvailable(image: string): Promise<boolean> {
@@ -15,44 +17,34 @@ export class Image {
   }
 
   public async pullImage(name: string) {
-    ui.text(`- Checking if image "${name}" is available`);
+    emitPipelineEvent('info', `Checking if image "${name}" is available`);
 
     const isImageAvailable = await this.isImageAvailable(name);
 
     if (isImageAvailable) {
-      ui.text('- Image already exists, skipping pull');
+      emitPipelineEvent('image:pulled', `Image "${name}" already exists, skipping pull`);
       return;
     }
 
-    ui.text('- Image not found, pulling it from the registry...');
+    emitPipelineEvent('image:pulling', `Pulling image "${name}" from registry...`);
 
     try {
       const stream = await this.docker.pull(name, {});
 
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         this.docker.modem.followProgress(stream, (error) => {
           if (error) {
-            ui.text(`- Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
-            ui.text('- Exiting...');
-
-            process.exit();
+            emitPipelineEvent('error', `Error pulling image: "${error.message.trim()}"`);
+            reject(error);
+            return;
           }
 
-          ui.text('- Image pulled successfully');
-
+          emitPipelineEvent('image:pulled', `Image "${name}" pulled successfully`);
           resolve();
         });
       });
     } catch (error) {
-      if (error instanceof Error) {
-        ui.text(`- Error pulling image: "${error.message.trim()}"`, { fg: 'red' });
-      } else {
-        ui.text(`- Error pulling image: "${error}"`, { fg: 'red' });
-      }
-
-      ui.text('- Exiting...');
-
-      process.exit();
+      handleAndEmitError('pulling image', error);
     }
   }
 }

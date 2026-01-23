@@ -1,6 +1,7 @@
 import type { Step } from '@/types/step.js';
 
-import * as ui from '@/lib/ui.js';
+import { emitPipelineEvent, pipelineEvents } from '@/lib/events.js';
+import type { CommandEvent } from '@/lib/events.js';
 
 import { Instance } from './instance.js';
 import { Artifacts } from './artifacts.js';
@@ -20,6 +21,8 @@ export class Runner {
   private artifacts: Artifacts;
   private environment: Environment;
   private configuration: Configuration;
+  private dockerChecked: boolean = false;
+  private isRunning: boolean = false;
 
   constructor(options: RunnerOptions) {
     this.name = options.name;
@@ -28,24 +31,89 @@ export class Runner {
 
     this.instance = new Instance();
     this.artifacts = new Artifacts();
+
+    // Listen for rerun commands
+    this.setupCommandListener();
+  }
+
+  private setupCommandListener() {
+    const handleCommand = async (event: CommandEvent) => {
+      if (this.isRunning) {
+        emitPipelineEvent('info', 'Pipeline is already running');
+        return;
+      }
+
+      if (event.type === 'rerun:pipeline') {
+        await this.rerunPipeline();
+      } else if (event.type === 'rerun:step') {
+        const stepName = event.data?.stepName as string | undefined;
+        if (stepName) {
+          await this.rerunStep(stepName);
+        }
+      }
+    };
+
+    pipelineEvents.onCommand(handleCommand);
+  }
+
+  private reset() {
+    this.dockerChecked = false;
+    this.isRunning = false;
+  }
+
+  private async rerunPipeline() {
+    this.reset();
+    try {
+      await this.runPipelineSteps();
+    } catch {
+      // Error is emitted through events
+    }
+  }
+
+  private async rerunStep(stepName: string) {
+    this.reset();
+    const pipeline = this.configuration.getPipelineByName(this.name);
+    const stepConfig = pipeline.find(({ step }) => step?.name === stepName);
+
+    if (!stepConfig?.step) {
+      emitPipelineEvent('error', `Step "${stepName}" not found`);
+      return;
+    }
+
+    // Emit pipeline start for UI reset
+    const stepNames = this.configuration.getPipelineStepNames(this.name);
+    emitPipelineEvent('pipeline:start', `Re-running step: ${stepName}`);
+    emitPipelineEvent('pipeline:steps', undefined, { steps: stepNames });
+
+    try {
+      await this.runPipelineStep(stepConfig.step);
+      emitPipelineEvent('pipeline:complete', 'Step completed successfully');
+    } catch {
+      // Error is emitted through events
+    }
   }
 
   private async runPipelineStep(step: Step) {
-    ui.text(`\n[Running Step: "${step.name || 'Unknown'}"]`, { bold: true });
+    const stepName = step.name || 'Unknown';
+    emitPipelineEvent('step:start', `Running step: ${stepName}`, { stepName });
 
     if (!step.script.length) {
-      ui.text('Step script is empty');
-      ui.text('Exiting...');
-
-      process.exit();
+      emitPipelineEvent('step:error', 'Step script is empty', { stepName });
+      throw new Error(`Step "${stepName}" has no scripts to run`);
     }
 
-    ui.box('Setup');
+    emitPipelineEvent('info', 'Setting up step...');
+
+    // Check Docker availability on first step (part of setup)
+    if (!this.dockerChecked) {
+      await this.instance.checkAvailability();
+      this.dockerChecked = true;
+    }
 
     const defaultImage = this.configuration.getDefaultImage();
 
     if (!step.image) {
-      ui.text(`- No image found for this step, using default: "${defaultImage}"`);
+      emitPipelineEvent('info', `No image found for this step, using default: "${defaultImage}"`);
     }
 
     const image = step.image || defaultImage;
@@ -57,11 +125,11 @@ export class Runner {
 
     await stepInstance.start();
 
-    ui.text('- Container started');
+    emitPipelineEvent('instance:started', 'Container started');
 
     await this.artifacts.uploadArtifacts(stepInstance);
 
-    ui.box('Scripts');
+    emitPipelineEvent('info', 'Running scripts...');
 
     for (const [stepScriptIndex, stepScript] of step.script.entries()) {
       await this.instance.runInstanceScript(
@@ -74,26 +142,32 @@ export class Runner {
 
     await this.artifacts.generateArtifacts(stepInstance, artifacts);
     await this.instance.removeInstance(stepInstance);
+
+    emitPipelineEvent('step:complete', `Step completed: ${stepName}`, { stepName });
   }
 
   public async runPipelineSteps() {
-    const pipeline = this.configuration.getPipelineByName(this.name);
+    this.isRunning = true;
 
-    ui.text(`[Running Pipeline: "${this.name}"]`, { bold: true });
+    try {
+      const pipeline = this.configuration.getPipelineByName(this.name);
+      const stepNames = this.configuration.getPipelineStepNames(this.name);
 
-    await this.instance.checkAvailability();
+      emitPipelineEvent('pipeline:start', `Running pipeline: ${this.name}`);
+      emitPipelineEvent('pipeline:steps', undefined, { steps: stepNames });
 
-    ui.text('- Starting pipeline steps...');
+      for (const { step } of pipeline) {
+        if (!step) {
+          emitPipelineEvent('error', 'No step found in the pipeline');
+          throw new Error('No step found in the pipeline');
+        }
 
-    for (const { step } of pipeline) {
-      if (!step) {
-        ui.text('- No step found in the pipeline', { fg: 'red' });
-        ui.text('- Exiting from the application...');
-
-        process.exit();
+        await this.runPipelineStep(step);
       }
 
-      await this.runPipelineStep(step);
+      emitPipelineEvent('pipeline:complete', 'Pipeline completed successfully');
+    } finally {
+      this.isRunning = false;
     }
   }
 }

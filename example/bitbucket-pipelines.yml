@@ -10,19 +10,19 @@ definitions:
 
   steps:
     - step: &install-dependencies
-        name: "Test - Install NPM Dependencies"
+        name: 'Test - Install NPM Dependencies'
         script:
           - npm ci
           - ls -la
           - npm run start
 
     - step: &variables-and-scalar
-        name: "Test - Variables/Scalar"
+        name: 'Test - Variables/Scalar'
         script:
           - *scalar
 
     - step: &create-artifact
-        name: "Test - Create Artifact"
+        name: 'Test - Create Artifact'
         script:
           - mkdir -p artifacts
           - echo "This is an artifact - version 1" > artifacts/artifact.txt
@@ -31,7 +31,7 @@ definitions:
           - artifacts/**
 
     - step: &print-and-update-artifact
-        name: "Test - Print Artifact and Update"
+        name: 'Test - Print Artifact and Update'
         script:
           - ls -la artifacts
           - cat artifacts/artifact.txt
@@ -42,15 +42,21 @@ definitions:
           - artifacts/**
 
     - step: &print-artifact-only
-        name: "Test - Print Artifact Only"
+        name: 'Test - Print Artifact Only'
         script:
           - ls -la artifacts
           - cat artifacts/artifact.txt
           - cat artifacts/another.txt
 
+    - step: &simulate-error
+        name: 'Test - Simulate Error'
+        script:
+          - echo "This step will fail"
+          - exit 1
+
 pipelines:
   tags:
-    "*.*.*":
+    '*.*.*':
       - step: *install-dependencies
       - step: *variables-and-scalar
 
@@ -66,3 +72,9 @@ pipelines:
       - step: *install-dependencies
     master:
       - step: *install-dependencies
+
+  custom:
+    error-test:
+      - step: *install-dependencies
+      - step: *simulate-error
+      - step: *print-artifact-only

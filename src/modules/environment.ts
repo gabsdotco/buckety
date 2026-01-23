@@ -2,8 +2,6 @@ import fs from 'node:fs';
 
 import * as env from 'dotenv';
 
-import * as ui from '@/lib/ui.js';
-
 import { FILE_PATH_REGEX, VARIABLES_LIST_REGEX } from '@/lib/regex.js';
 
 type EnvironmentOptions = {
@@ -35,11 +33,9 @@ export class Environment {
     const isManualVariables = VARIABLES_LIST_REGEX.test(variables);
 
     if (!isFilePath && !isManualVariables) {
-      ui.text(`The "--variables" parameter must be a valid path or comma separated key-value`, {
-        fg: 'red',
-      });
-
-      process.exit();
+      throw new Error(
+        'The "--variables" parameter must be a valid path or comma separated key-value',
+      );
     }
 
     if (isFilePath) {
@@ -55,8 +51,7 @@ export class Environment {
 
   private loadVariablesFromFile(filePath: string) {
     if (!fs.existsSync(filePath)) {
-      ui.text(`File not found: ${filePath}`, { fg: 'red' });
-      process.exit();
+      throw new Error(`Variables file not found: ${filePath}`);
     }
 
     const file = fs.readFileSync(filePath);
