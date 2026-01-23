@@ -216,18 +216,22 @@ export function useMyHook() {
 
 To add a new event type:
 
-1. Add the event type to `src/lib/events.ts`
-2. Emit the event from the appropriate module
-3. Handle the event in `usePipelineEvents.ts`
+1. Add the event type to the `PipelineEvent` discriminated union in `src/lib/events.ts`.
+2. Update `src/tui/reducers/pipelineReducer.ts` to handle the new event type in `handlePipelineEvent`.
+3. Emit the event from the module using `this.reporter.emit({ type: 'my-event', data: ... })`.
 
 ```typescript
-// In a module
-emitPipelineEvent('my-event:start', 'Event message', { data: 'value' });
+// src/lib/events.ts
+export type PipelineEvent =
+  | { type: 'my-event:start'; data: { value: string } }
+  // ...
 
-// In usePipelineEvents.ts
+// In a module
+this.reporter.emit({ type: 'my-event:start', data: { value: 'test' } });
+
+// In src/tui/reducers/pipelineReducer.ts
 case 'my-event:start':
-  // Handle the event
-  break;
+  return addOutput(state, { text: `Started: ${event.data.value}`, type: 'info' });
 ```
 
 ### Testing TUI Changes

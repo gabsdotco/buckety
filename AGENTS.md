@@ -36,6 +36,12 @@ pnpm eslint src/
 pnpm prettier --write src/
 ```
 
+## Git Workflow
+
+Always ask the user for confirmation before creating a git commit. Do not automatically commit changes unless explicitly instructed.
+
+Always use conventional commits (e.g. feat, fix, refactor, chore) and atomic commits. All commit messages must be fully lower-case. Ensure that each commit focuses on a single logical change or related set of changes.
+
 No test framework is currently configured. When adding tests, use Vitest (recommended for ESM projects).
 
 ## Project Structure
@@ -52,10 +58,21 @@ src/
 │   ├── configuration.ts  # YAML parsing
 │   ├── environment.ts    # Environment variables
 │   └── artifacts.ts      # Artifact management
+├── tui/                  # Terminal User Interface
+│   ├── components/       # React components
+│   ├── hooks/            # Custom hooks
+│   ├── reducers/         # State management reducers
+│   └── index.tsx         # TUI entry point
 ├── lib/                  # Shared utilities
-│   ├── ui.ts             # Terminal output (Chalk)
-│   └── regex.ts          # Validation patterns
+│   ├── events.ts         # Pipeline event definitions
+│   ├── reporter.ts       # Event reporting implementation
+│   ├── terminal.ts       # Terminal utilities
+│   ├── errors.ts         # Error handling
+│   ├── docker.ts         # Shared Docker client
+│   └── paths.ts          # Path constants
 └── types/                # TypeScript interfaces
+    ├── reporter.ts       # Reporter interface
+    └── index.ts          # Shared type exports
 ```
 
 ## Code Style Guidelines

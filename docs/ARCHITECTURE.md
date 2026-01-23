@@ -217,25 +217,48 @@ Terminal size tracking hook that:
 - Provides current columns and rows
 - Updates layout on resize
 
-### Event System
+### Event System & Reporter Pattern
 
-The TUI communicates with the pipeline runner via an event emitter:
+The TUI communicates with the pipeline runner via a strictly typed event system and a `Reporter` interface.
+
+#### Reporter Interface
+
+Core modules (`Runner`, `Instance`, etc.) do not depend on the global event emitter directly. Instead, they accept a `Reporter` interface:
 
 ```typescript
-// Event types
-type PipelineEvent = {
-  type: 'pipeline:start' | 'step:start' | 'script:output' | ...;
-  message?: string;
-  data?: Record<string, unknown>;
-};
+interface Reporter {
+  emit(event: PipelineEvent): void;
+}
+```
 
-// Emitting events from modules
-emitPipelineEvent('script:output', 'npm install output...', { stderr: false });
+This allows dependency injection, making modules testable and decoupled from the TUI.
 
-// Receiving events in TUI
-pipelineEvents.onPipeline((event) => {
-  // Update TUI state based on event
-});
+#### Strict Event Types
+
+Events are defined as Discriminated Unions for type safety:
+
+```typescript
+type PipelineEvent =
+  | { type: 'step:start'; data: { stepName: string } }
+  | { type: 'image:pulling'; data: { image: string } }
+  | { type: 'error'; error: unknown };
+```
+
+#### TUI State Management (Reducer)
+
+The TUI uses a Reducer pattern (`src/tui/reducers/pipelineReducer.ts`) to manage state. It receives raw data events from the core and transforms them into UI state (messages, status updates). This separates business logic (Core) from presentation logic (TUI).
+
+```typescript
+function pipelineReducer(state, action) {
+  switch (action.type) {
+    case 'EVENT':
+      // Handle PipelineEvent and update state
+      return newState;
+    case 'SELECT_STEP':
+      // Handle UI interaction
+      return { ...state, selectedStepIndex: action.index };
+  }
+}
 ```
 
 ## Libraries
