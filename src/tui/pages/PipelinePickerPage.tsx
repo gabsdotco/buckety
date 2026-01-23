@@ -10,7 +10,7 @@ type PipelinePickerProps = {
   onCancel: () => void;
 };
 
-export function PipelinePicker({ pipelines, onSelect, onCancel }: PipelinePickerProps) {
+export function PipelinePickerPage({ pipelines, onSelect, onCancel }: PipelinePickerProps) {
   const [filter, setFilter] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [columns, rows] = useTerminalDimensions();

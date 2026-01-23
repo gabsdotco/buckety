@@ -3,19 +3,19 @@ import { Box, useInput, useApp } from 'ink';
 
 import { emitCommand } from '@/lib/events.js';
 
-import { useTerminalDimensions } from './hooks/useTerminalDimensions.js';
-import { usePipelineEvents } from './hooks/usePipelineEvents.js';
-import { useListNavigation } from './hooks/useListNavigation.js';
-import { Sidebar } from './components/Sidebar.js';
-import { OutputPanel, OutputPanelRef } from './components/OutputPanel.js';
+import { useTerminalDimensions } from '../hooks/useTerminalDimensions.js';
+import { usePipelineEvents } from '../hooks/usePipelineEvents.js';
+import { useListNavigation } from '../hooks/useListNavigation.js';
+import { Sidebar } from '../components/Sidebar.js';
+import { OutputPanel, OutputPanelRef } from '../components/OutputPanel.js';
 
-type AppProps = {
+type PipelineRunnerPageProps = {
   pipelineName: string;
 };
 
 const SIDEBAR_WIDTH = 42;
 
-export function App({ pipelineName }: AppProps) {
+export function PipelineRunnerPage({ pipelineName }: PipelineRunnerPageProps) {
   const { exit } = useApp();
   const [columns, rows] = useTerminalDimensions();
   const { state, selectStep } = usePipelineEvents(pipelineName);

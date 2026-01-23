@@ -3,8 +3,8 @@ import { render } from 'ink';
 
 import { clearScreen, hideCursor, showCursor } from '@/lib/terminal.js';
 
-import { App } from './App.js';
-import { PipelinePicker } from './components/PipelinePicker.js';
+import { PipelineRunnerPage } from './pages/PipelineRunnerPage.js';
+import { PipelinePickerPage } from './pages/PipelinePickerPage.js';
 
 export type { PipelineState, StepState, StepStatus, PipelineStatus } from './types.js';
 
@@ -33,7 +33,7 @@ export async function startTUI(pipelineName: string) {
     process.exit(0);
   });
 
-  const { waitUntilExit } = render(<App pipelineName={pipelineName} />, {
+  const { waitUntilExit } = render(<PipelineRunnerPage pipelineName={pipelineName} />, {
     exitOnCtrlC: false,
   });
 
@@ -54,7 +54,7 @@ export async function showPipelinePicker(pipelines: string[]): Promise<string | 
 
   return new Promise((resolve) => {
     const { unmount } = render(
-      <PipelinePicker
+      <PipelinePickerPage
         pipelines={pipelines}
         onSelect={(pipeline) => {
           unmount();

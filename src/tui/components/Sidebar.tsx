@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Text } from 'ink';
 
 import type { StepState, StepStatus, PipelineStatus } from '../types.js';
+import { Panel } from './base/Panel.js';
+import { ListItem } from './base/ListItem.js';
 
 type SidebarProps = {
   steps: StepState[];
@@ -38,14 +40,13 @@ export function Sidebar({ steps, selectedIndex, pipelineStatus, width, height }:
   const availableRows = Math.floor((height - hintRows - 4) / 3);
 
   return (
-    <Box
+    <Panel
       flexDirection="column"
       width={width}
       height={height}
       paddingX={2}
       paddingY={1}
       borderStyle="round"
-      borderColor="gray"
     >
       <Box flexDirection="column" flexGrow={1}>
         {steps.length === 0 ? (
@@ -60,21 +61,14 @@ export function Sidebar({ steps, selectedIndex, pipelineStatus, width, height }:
             const isPending = step.status === 'pending';
 
             return (
-              <Box
+              <ListItem
                 key={`step-${index}`}
-                paddingX={2}
-                paddingY={1}
-                backgroundColor={isSelected ? '#191919' : undefined}
-              >
-                <Box marginRight={2}>
-                  <Text color={statusColor} dimColor={isPending}>
-                    {symbol}
-                  </Text>
-                </Box>
-                <Text color={statusColor} dimColor={isPending}>
-                  {displayName}
-                </Text>
-              </Box>
+                label={displayName}
+                symbol={symbol}
+                isSelected={isSelected}
+                color={statusColor}
+                dimColor={isPending}
+              />
             );
           })
         )}
@@ -98,6 +92,6 @@ export function Sidebar({ steps, selectedIndex, pipelineStatus, width, height }:
           </>
         )}
       </Box>
-    </Box>
+    </Panel>
   );
 }
