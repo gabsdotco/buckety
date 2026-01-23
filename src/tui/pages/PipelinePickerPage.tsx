@@ -110,6 +110,8 @@ export function PipelinePickerPage({ pipelines, onSelect, onCancel }: PipelinePi
                     symbol={isSelected ? '● ' : '  '}
                     isSelected={isSelected}
                     color={isSelected ? COLORS.highlight : undefined}
+                    paddingX={1}
+                    paddingY={0}
                   />
                 );
               })}
@@ -132,6 +134,8 @@ export function PipelinePickerPage({ pipelines, onSelect, onCancel }: PipelinePi
                       symbol={isSelected ? '● ' : '  '}
                       isSelected={isSelected}
                       color={isSelected ? COLORS.highlight : undefined}
+                      paddingX={1}
+                      paddingY={0}
                     />
                   );
                 })}
