@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { Runner } from '@/modules/runner.js';
 import { Environment } from '@/modules/environment.js';
 import { Configuration } from '@/modules/configuration.js';
+import { EventEmitterReporter } from '@/lib/reporter.js';
 import { startTUI, showPipelinePicker } from '@/tui/index.js';
 
 const DEFAULT_TEMPLATE_PATH = './bitbucket-pipelines.yml';
@@ -63,11 +64,13 @@ export const setupRunCommand = (program: Command) =>
       const { waitUntilExit } = await startTUI(pipelineName);
 
       const environment = new Environment({ variables });
+      const reporter = new EventEmitterReporter();
 
       const runner = new Runner({
         name: pipelineName,
         environment,
         configuration,
+        reporter,
       });
 
       try {

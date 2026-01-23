@@ -2,13 +2,10 @@
  * Error handling utilities for consistent error processing and event emission.
  */
 
-import { emitPipelineEvent } from './events.js';
+import { Reporter } from '@/types/reporter.js';
 
 /**
  * Extracts a clean error message from an unknown error value.
- *
- * @param error - The error to extract the message from
- * @returns A trimmed error message string
  */
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -18,25 +15,13 @@ export function getErrorMessage(error: unknown): string {
 }
 
 /**
- * Handles an error by emitting it as a pipeline event and re-throwing.
- * Use this for consistent error handling across modules.
- *
- * @param context - A short description of what operation failed (e.g., "pulling image")
- * @param error - The error that occurred
- * @throws Always throws - either the original Error or a new Error wrapping the value
- *
- * @example
- * ```typescript
- * try {
- *   await docker.pull(imageName);
- * } catch (error) {
- *   handleAndEmitError('pulling image', error);
- * }
- * ```
+ * Handles an error by emitting it via reporter and re-throwing.
  */
-export function handleAndEmitError(context: string, error: unknown): never {
+export function handleAndEmitError(context: string, error: unknown, reporter: Reporter): never {
   const message = getErrorMessage(error);
-  emitPipelineEvent('error', `Error ${context}: "${message}"`);
+  // Create a new error with context to emit
+  const contextError = new Error(`Error ${context}: "${message}"`);
+  reporter.emit({ type: 'error', error: contextError });
 
   if (error instanceof Error) {
     throw error;

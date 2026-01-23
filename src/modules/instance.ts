@@ -3,7 +3,7 @@ import Docker from 'dockerode';
 
 import { Writable } from 'stream';
 
-import { emitPipelineEvent } from '@/lib/events.js';
+import { Reporter } from '@/types/reporter.js';
 import { cleanTerminalOutput } from '@/lib/terminal.js';
 import { handleAndEmitError } from '@/lib/errors.js';
 import { docker } from '@/lib/docker.js';
@@ -14,20 +14,22 @@ import { Image } from './image.js';
 export class Instance {
   private image: Image;
   private docker: Docker;
+  private reporter: Reporter;
 
-  constructor() {
-    this.image = new Image();
+  constructor(reporter: Reporter) {
+    this.reporter = reporter;
+    this.image = new Image(reporter);
     this.docker = docker;
   }
 
   public async checkAvailability() {
-    emitPipelineEvent({ type: 'docker:checking' });
+    this.reporter.emit({ type: 'docker:checking' });
 
     try {
       await this.docker.ping();
-      emitPipelineEvent({ type: 'docker:available' });
+      this.reporter.emit({ type: 'docker:available' });
     } catch (error) {
-      emitPipelineEvent({ type: 'docker:unavailable', error });
+      this.reporter.emit({ type: 'docker:unavailable', error });
       throw new Error('Docker is not available or not running');
     }
   }
@@ -37,13 +39,13 @@ export class Instance {
       await this.image.pullImage(image);
 
       if (variables.length) {
-        emitPipelineEvent({
+        this.reporter.emit({
           type: 'info',
           message: `Initializing instance with ${variables.length} variables`,
         });
       }
 
-      emitPipelineEvent({ type: 'instance:creating', data: { image } });
+      this.reporter.emit({ type: 'instance:creating', data: { image } });
 
       // Add environment variables to force color output in CLI tools
       const colorEnvVars = [
@@ -61,12 +63,12 @@ export class Instance {
       });
 
       const shortId = `${instance.id.substring(0, 4)}..${instance.id.slice(-4)}`;
-      emitPipelineEvent({
+      this.reporter.emit({
         type: 'instance:created',
         data: { id: instance.id, shortId },
       });
 
-      emitPipelineEvent({ type: 'instance:copying' });
+      this.reporter.emit({ type: 'instance:copying' });
 
       // @TODO: make the path configurable through CLI options
       const workingDir = process.cwd();
@@ -76,21 +78,21 @@ export class Instance {
         path: CONTAINER_WORKDIR,
       });
 
-      emitPipelineEvent({ type: 'instance:copied' });
+      this.reporter.emit({ type: 'instance:copied' });
 
       return instance;
     } catch (error) {
-      handleAndEmitError('creating instance', error);
+      handleAndEmitError('creating instance', error, this.reporter);
     }
   }
 
   public async removeInstance(instance: Docker.Container) {
-    emitPipelineEvent({ type: 'instance:stopping' });
+    this.reporter.emit({ type: 'instance:stopping' });
 
     await instance.stop();
     await instance.remove();
 
-    emitPipelineEvent({ type: 'instance:stopped' });
+    this.reporter.emit({ type: 'instance:stopped' });
   }
 
   public async runInstanceScript(
@@ -101,7 +103,7 @@ export class Instance {
   ) {
     const sanitizedScript = stepScript.replace(/\n/g, '; ');
 
-    emitPipelineEvent({
+    this.reporter.emit({
       type: 'script:start',
       data: {
         script: stepScript,
@@ -130,7 +132,7 @@ export class Instance {
     let lineBuffer = '';
 
     const outputStream = new Writable({
-      write(chunk, _encoding, callback) {
+      write: (chunk, _encoding, callback) => {
         const text = chunk.toString('utf-8');
         // Handle line buffering for partial lines
         const combined = lineBuffer + text;
@@ -144,7 +146,7 @@ export class Instance {
           const cleanLine = cleanTerminalOutput(line);
           if (cleanLine) {
             hasOutput = true;
-            emitPipelineEvent({
+            this.reporter.emit({
               type: 'script:output',
               data: { text: cleanLine, stderr: false },
             });
@@ -159,7 +161,7 @@ export class Instance {
       stream.pipe(outputStream);
 
       stream.on('error', async (err: Error) => {
-        emitPipelineEvent({ type: 'script:error', error: err });
+        this.reporter.emit({ type: 'script:error', error: err });
 
         await this.removeInstance(instance);
         reject(err);
@@ -170,7 +172,7 @@ export class Instance {
         if (lineBuffer) {
           const cleanLine = cleanTerminalOutput(lineBuffer);
           if (cleanLine) {
-            emitPipelineEvent({
+            this.reporter.emit({
               type: 'script:output',
               data: { text: cleanLine, stderr: false },
             });
@@ -178,7 +180,7 @@ export class Instance {
         }
 
         if (!hasOutput) {
-          emitPipelineEvent({
+          this.reporter.emit({
             type: 'script:output',
             data: { text: '(no output)', stderr: false },
           });
@@ -188,12 +190,12 @@ export class Instance {
 
         if (result.ExitCode !== 0) {
           const error = new Error(`Script failed with exit code ${result.ExitCode}`);
-          emitPipelineEvent({ type: 'script:error', error });
+          this.reporter.emit({ type: 'script:error', error });
 
           await this.removeInstance(instance);
           reject(error);
         } else {
-          emitPipelineEvent({ type: 'script:complete' });
+          this.reporter.emit({ type: 'script:complete' });
           resolve();
         }
       });

@@ -1,14 +1,16 @@
 import Docker from 'dockerode';
 
-import { emitPipelineEvent } from '@/lib/events.js';
+import { Reporter } from '@/types/reporter.js';
 import { handleAndEmitError } from '@/lib/errors.js';
 import { docker } from '@/lib/docker.js';
 
 export class Image {
   private docker: Docker;
+  private reporter: Reporter;
 
-  constructor() {
+  constructor(reporter: Reporter) {
     this.docker = docker;
+    this.reporter = reporter;
   }
 
   private async isImageAvailable(image: string): Promise<boolean> {
@@ -17,16 +19,16 @@ export class Image {
   }
 
   public async pullImage(name: string) {
-    emitPipelineEvent({ type: 'info', message: `Checking if image "${name}" is available` });
+    this.reporter.emit({ type: 'info', message: `Checking if image "${name}" is available` });
 
     const isImageAvailable = await this.isImageAvailable(name);
 
     if (isImageAvailable) {
-      emitPipelineEvent({ type: 'image:pulled', data: { image: name, cached: true } });
+      this.reporter.emit({ type: 'image:pulled', data: { image: name, cached: true } });
       return;
     }
 
-    emitPipelineEvent({ type: 'image:pulling', data: { image: name } });
+    this.reporter.emit({ type: 'image:pulling', data: { image: name } });
 
     try {
       const stream = await this.docker.pull(name, {});
@@ -35,17 +37,17 @@ export class Image {
         this.docker.modem.followProgress(stream, (error) => {
           if (error) {
             const err = new Error(`Error pulling image: "${error.message.trim()}"`);
-            emitPipelineEvent({ type: 'error', error: err });
+            this.reporter.emit({ type: 'error', error: err });
             reject(err);
             return;
           }
 
-          emitPipelineEvent({ type: 'image:pulled', data: { image: name, cached: false } });
+          this.reporter.emit({ type: 'image:pulled', data: { image: name, cached: false } });
           resolve();
         });
       });
     } catch (error) {
-      handleAndEmitError('pulling image', error);
+      handleAndEmitError('pulling image', error, this.reporter);
     }
   }
 }
