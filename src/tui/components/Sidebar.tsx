@@ -4,6 +4,7 @@ import { Box, Text } from 'ink';
 import type { StepState, StepStatus, PipelineStatus } from '../types.js';
 import { Panel } from './base/Panel.js';
 import { ListItem } from './base/ListItem.js';
+import { KeyHelp } from './base/KeyHelp.js';
 
 type SidebarProps = {
   steps: StepState[];
@@ -75,20 +76,12 @@ export function Sidebar({ steps, selectedIndex, pipelineStatus, width, height }:
       </Box>
 
       <Box flexDirection="column" marginTop={1}>
-        <Text dimColor>
-          <Text>[↑↓]</Text> Navigate
-        </Text>
-        <Text dimColor>
-          <Text>[←→]</Text> Scroll
-        </Text>
+        <KeyHelp keys="↑↓" description="Navigate" />
+        <KeyHelp keys="←→" description="Scroll" />
         {canRerun && (
           <>
-            <Text dimColor>
-              <Text>[r]</Text> Re-run step
-            </Text>
-            <Text dimColor>
-              <Text>[R]</Text> Re-run all
-            </Text>
+            <KeyHelp keys="r" description="Re-run step" />
+            <KeyHelp keys="R" description="Re-run all" />
           </>
         )}
       </Box>

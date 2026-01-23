@@ -3,6 +3,10 @@ import { Box, Text, useInput } from 'ink';
 
 import { useTerminalDimensions } from '../hooks/useTerminalDimensions.js';
 import { COLORS } from '../theme.js';
+import { SearchInput } from '../components/base/SearchInput.js';
+import { SectionHeader } from '../components/base/SectionHeader.js';
+import { KeyHelp, KeyHelpGroup } from '../components/base/KeyHelp.js';
+import { ListItem } from '../components/base/ListItem.js';
 
 type PipelinePickerProps = {
   pipelines: string[];
@@ -88,29 +92,25 @@ export function PipelinePickerPage({ pipelines, onSelect, onCancel }: PipelinePi
   return (
     <Box width={columns} height={rows} paddingTop={topPadding} paddingLeft={leftPadding}>
       <Box flexDirection="column" width={pickerWidth} paddingX={1}>
-        <Box marginBottom={1}>
-          <Text color={COLORS.highlight}>› </Text>
-          <Text color={COLORS.highlight}>Filter: </Text>
-          <Text>{filter}</Text>
-          <Text dimColor>{filter ? '' : '...'}</Text>
-        </Box>
+        <SearchInput value={filter} />
 
         <Box flexDirection="column">
           {filteredPipelines.length === 0 && <Text dimColor>No pipelines found</Text>}
 
           {groupedPipelines.ungrouped.length > 0 && (
             <Box flexDirection="column" marginBottom={1}>
-              <Text dimColor>Standard</Text>
+              <SectionHeader title="Standard" />
               {groupedPipelines.ungrouped.map((pipeline) => {
                 const isSelected = currentIndex === selectedIndex;
                 currentIndex++;
                 return (
-                  <Box key={pipeline}>
-                    <Text color={isSelected ? COLORS.highlight : undefined}>
-                      {isSelected ? '● ' : '  '}
-                      {pipeline}
-                    </Text>
-                  </Box>
+                  <ListItem
+                    key={pipeline}
+                    label={pipeline}
+                    symbol={isSelected ? '● ' : '  '}
+                    isSelected={isSelected}
+                    color={isSelected ? COLORS.highlight : undefined}
+                  />
                 );
               })}
             </Box>
@@ -120,18 +120,19 @@ export function PipelinePickerPage({ pipelines, onSelect, onCancel }: PipelinePi
             if (groupPipelines.length === 0) return null;
             return (
               <Box key={group} flexDirection="column" marginBottom={1}>
-                <Text dimColor>{group.charAt(0).toUpperCase() + group.slice(1)}</Text>
+                <SectionHeader title={group.charAt(0).toUpperCase() + group.slice(1)} />
                 {groupPipelines.map((pipeline) => {
                   const isSelected = currentIndex === selectedIndex;
                   const displayName = pipeline.split(':')[1];
                   currentIndex++;
                   return (
-                    <Box key={pipeline}>
-                      <Text color={isSelected ? COLORS.highlight : undefined}>
-                        {isSelected ? '● ' : '  '}
-                        {displayName}
-                      </Text>
-                    </Box>
+                    <ListItem
+                      key={pipeline}
+                      label={displayName}
+                      symbol={isSelected ? '● ' : '  '}
+                      isSelected={isSelected}
+                      color={isSelected ? COLORS.highlight : undefined}
+                    />
                   );
                 })}
               </Box>
@@ -140,7 +141,11 @@ export function PipelinePickerPage({ pipelines, onSelect, onCancel }: PipelinePi
         </Box>
 
         <Box marginTop={1}>
-          <Text dimColor>↑/↓ to navigate • Enter to select • Esc to cancel</Text>
+          <KeyHelpGroup direction="row" separator=" • ">
+            <KeyHelp keys="↑/↓" description="to navigate" />
+            <KeyHelp keys="Enter" description="to select" />
+            <KeyHelp keys="Esc" description="to cancel" />
+          </KeyHelpGroup>
         </Box>
       </Box>
     </Box>
