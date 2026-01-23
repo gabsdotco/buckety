@@ -50,16 +50,20 @@ export async function startTUI(pipelineName: string) {
 }
 
 export async function showPipelinePicker(pipelines: string[]): Promise<string | null> {
+  clearScreen();
+
   return new Promise((resolve) => {
     const { unmount } = render(
       <PipelinePicker
         pipelines={pipelines}
         onSelect={(pipeline) => {
           unmount();
+          clearScreen();
           resolve(pipeline);
         }}
         onCancel={() => {
           unmount();
+          clearScreen();
           resolve(null);
         }}
       />,
