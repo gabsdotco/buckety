@@ -87,21 +87,12 @@ export function PipelinePicker({ pipelines, onSelect, onCancel }: PipelinePicker
 
   return (
     <Box width={columns} height={rows} paddingTop={topPadding} paddingLeft={leftPadding}>
-      <Box
-        flexDirection="column"
-        width={pickerWidth}
-        borderStyle="single"
-        borderColor={COLORS.border}
-        paddingX={1}
-      >
-        <Box justifyContent="center" marginBottom={1}>
-          <Text bold>Select Pipeline</Text>
-        </Box>
-
+      <Box flexDirection="column" width={pickerWidth} paddingX={1}>
         <Box marginBottom={1}>
+          <Text color={COLORS.highlight}>› </Text>
           <Text color={COLORS.highlight}>Filter: </Text>
           <Text>{filter}</Text>
-          <Text dimColor>{filter ? '' : ' (type to search)'}</Text>
+          <Text dimColor>{filter ? '' : '...'}</Text>
         </Box>
 
         <Box flexDirection="column">
@@ -109,16 +100,14 @@ export function PipelinePicker({ pipelines, onSelect, onCancel }: PipelinePicker
 
           {groupedPipelines.ungrouped.length > 0 && (
             <Box flexDirection="column" marginBottom={1}>
-              <Text bold underline>
-                Standard
-              </Text>
+              <Text dimColor>Standard</Text>
               {groupedPipelines.ungrouped.map((pipeline) => {
                 const isSelected = currentIndex === selectedIndex;
                 currentIndex++;
                 return (
                   <Box key={pipeline}>
                     <Text color={isSelected ? COLORS.highlight : undefined}>
-                      {isSelected ? '> ' : '  '}
+                      {isSelected ? '● ' : '  '}
                       {pipeline}
                     </Text>
                   </Box>
@@ -131,9 +120,7 @@ export function PipelinePicker({ pipelines, onSelect, onCancel }: PipelinePicker
             if (groupPipelines.length === 0) return null;
             return (
               <Box key={group} flexDirection="column" marginBottom={1}>
-                <Text bold underline>
-                  {group.charAt(0).toUpperCase() + group.slice(1)}
-                </Text>
+                <Text dimColor>{group.charAt(0).toUpperCase() + group.slice(1)}</Text>
                 {groupPipelines.map((pipeline) => {
                   const isSelected = currentIndex === selectedIndex;
                   const displayName = pipeline.split(':')[1];
@@ -141,7 +128,7 @@ export function PipelinePicker({ pipelines, onSelect, onCancel }: PipelinePicker
                   return (
                     <Box key={pipeline}>
                       <Text color={isSelected ? COLORS.highlight : undefined}>
-                        {isSelected ? '> ' : '  '}
+                        {isSelected ? '● ' : '  '}
                         {displayName}
                       </Text>
                     </Box>
@@ -152,16 +139,8 @@ export function PipelinePicker({ pipelines, onSelect, onCancel }: PipelinePicker
           })}
         </Box>
 
-        <Box
-          marginTop={1}
-          borderStyle="single"
-          borderTop={true}
-          borderBottom={false}
-          borderLeft={false}
-          borderRight={false}
-          borderColor={COLORS.border}
-        >
-          <Text dimColor>[↑/↓] Navigate [Enter] Select [Esc] Cancel</Text>
+        <Box marginTop={1}>
+          <Text dimColor>↑/↓ to navigate • Enter to select • Esc to cancel</Text>
         </Box>
       </Box>
     </Box>
