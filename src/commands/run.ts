@@ -4,6 +4,7 @@ import { Runner } from '@/modules/runner.js';
 import { Environment } from '@/modules/environment.js';
 import { Configuration } from '@/modules/configuration.js';
 import { EventEmitterReporter } from '@/lib/reporter.js';
+import { pipelineEvents, CommandEvent } from '@/lib/events.js';
 import { startTUI, showPipelinePicker } from '@/tui/index.js';
 
 const DEFAULT_TEMPLATE_PATH = './bitbucket-pipelines.yml';
@@ -65,6 +66,14 @@ export const setupRunCommand = (program: Command) =>
 
       const environment = new Environment({ variables });
       const reporter = new EventEmitterReporter();
+      const controller = new AbortController();
+
+      const cancelListener = (event: CommandEvent) => {
+        if (event.type === 'cancel:pipeline') {
+          controller.abort();
+        }
+      };
+      pipelineEvents.onCommand(cancelListener);
 
       const runner = new Runner({
         name: pipelineName,
@@ -74,10 +83,12 @@ export const setupRunCommand = (program: Command) =>
       });
 
       try {
-        await runner.runPipelineSteps();
+        await runner.runPipelineSteps(controller.signal);
       } catch {
         // TUI will show the error through events
         // Keep TUI running so user can see the error
+      } finally {
+        pipelineEvents.offCommand(cancelListener);
       }
 
       // Wait for user to quit TUI (press 'q')

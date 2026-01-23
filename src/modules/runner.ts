@@ -100,7 +100,9 @@ export class Runner {
     }
   }
 
-  private async runPipelineStep(step: Step) {
+  private async runPipelineStep(step: Step, abortSignal?: AbortSignal) {
+    if (abortSignal?.aborted) throw new Error('Aborted');
+
     const stepName = step.name || 'Unknown';
     this.reporter.emit({ type: 'step:start', data: { stepName } });
 
@@ -132,7 +134,21 @@ export class Runner {
 
     const variables = this.environment.getContainerFormatVariables();
 
+    if (abortSignal?.aborted) throw new Error('Aborted');
+
     const stepInstance = await this.instance.createInstance(image, variables);
+
+    // Ensure we stop the instance if aborted while running
+    if (abortSignal) {
+      abortSignal.addEventListener(
+        'abort',
+        () => {
+          // We can attempt to stop the instance here
+          this.instance.removeInstance(stepInstance).catch(() => {});
+        },
+        { once: true },
+      );
+    }
 
     await stepInstance.start();
 
@@ -143,6 +159,8 @@ export class Runner {
     this.reporter.emit({ type: 'info', message: 'Running scripts...' });
 
     for (const [stepScriptIndex, stepScript] of step.script.entries()) {
+      if (abortSignal?.aborted) throw new Error('Aborted');
+
       await this.instance.runInstanceScript(
         stepInstance,
         stepScript,
@@ -157,7 +175,7 @@ export class Runner {
     this.reporter.emit({ type: 'step:complete', data: { stepName } });
   }
 
-  public async runPipelineSteps() {
+  public async runPipelineSteps(abortSignal?: AbortSignal) {
     this.isRunning = true;
 
     try {
@@ -168,13 +186,15 @@ export class Runner {
       this.reporter.emit({ type: 'pipeline:steps', data: { steps: stepNames } });
 
       for (const { step } of pipeline) {
+        if (abortSignal?.aborted) throw new Error('Aborted');
+
         if (!step) {
           const error = new Error('No step found in the pipeline');
           this.reporter.emit({ type: 'error', error });
           throw error;
         }
 
-        await this.runPipelineStep(step);
+        await this.runPipelineStep(step, abortSignal);
       }
 
       this.reporter.emit({ type: 'pipeline:complete' });

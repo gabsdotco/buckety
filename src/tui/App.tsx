@@ -34,9 +34,8 @@ export function App({ pipelineName }: AppProps) {
 
   useInput((input, key) => {
     if (input.toLowerCase() === 'q' || (key.ctrl && input === 'c')) {
+      emitCommand('cancel:pipeline');
       exit();
-      // Force exit the process since pipeline might still be running
-      process.exit(0);
     }
 
     // Re-run commands (only when pipeline is not running)

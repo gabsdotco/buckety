@@ -34,7 +34,7 @@ export type PipelineEvent =
   | { type: 'info'; message: string }
   | { type: 'error'; error: unknown };
 
-export type CommandEventType = 'rerun:pipeline' | 'rerun:step';
+export type CommandEventType = 'rerun:pipeline' | 'rerun:step' | 'cancel:pipeline';
 
 export type CommandEvent = {
   type: CommandEventType;
